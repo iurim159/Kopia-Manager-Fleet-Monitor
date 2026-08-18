@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "uvLYq6G8Mb4=",
+  "success": true,
+  "projectFilePath": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/KopiaMonitorApp.csproj",
+  "expectedPackageFiles": [
+    "/home/iurim/.nuget/packages/docker.dotnet/3.125.15/docker.dotnet.3.125.15.nupkg.sha512",
+    "/home/iurim/.nuget/packages/mqttnet/5.2.0.1603/mqttnet.5.2.0.1603.nupkg.sha512",
+    "/home/iurim/.nuget/packages/newtonsoft.json/13.0.1/newtonsoft.json.13.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDoctor - Kopia Fleet Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <span class="brand-dot"></span>
+                <h1>JDoctor Monitor</h1>
+            </div>
+            <div class="header-actions">
+                <span class="last-sync" id="last-sync-time">Sync: --:--:--</span>
+                <button id="btnRunNow" class="btn-action" onclick="runChecksNow()">
+                    <span id="btnIcon">↻</span>
+                    <span id="btnText">Esegui Controlli Ora</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <div class="metrics-summary">
+            <div class="metric-card">
+                <span class="metric-label">Istanze Monitorate</span>
+                <span class="metric-value" id="total-devices">0</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Stato Inserimento</span>
+                <span class="metric-value" id="system-status">OK</span>
+            </div>
+        </div>
+
+        <div class="section-title">Istanze Configurate</div>
+
+        <div id="cardsContainer" class="cards-grid">
+            <div class="empty-state">Caricamento stato del sistema...</div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "KopiaMonitorApp/1.0.0": {
+        "dependencies": {
+          "Docker.DotNet": "3.125.15",
+          "MQTTnet": "5.2.0.1603"
+        },
+        "runtime": {
+          "KopiaMonitorApp.dll": {}
+        }
+      },
+      "Docker.DotNet/3.125.15": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.1"
+        },
+        "runtime": {
+          "lib/netstandard2.1/Docker.DotNet.dll": {
+            "assemblyVersion": "3.125.0.0",
+            "fileVersion": "3.125.15.1"
+          }
+        }
+      },
+      "MQTTnet/5.2.0.1603": {
+        "runtime": {
+          "lib/net10.0/MQTTnet.dll": {
+            "assemblyVersion": "5.2.0.1603",
+            "fileVersion": "5.2.0.1603"
+          }
+        }
+      },
+      "Newtonsoft.Json/13.0.1": {
+        "runtime": {
+          "lib/netstandard2.0/Newtonsoft.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.1.25517"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "KopiaMonitorApp/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Docker.DotNet/3.125.15": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XN8FKxVv8Mjmwu104/Hl9lM61pLY675s70gzwSj8KR5pwblo8HfWLcCuinh9kYsqujBkMH4HVRCEcRuU6al4BQ==",
+      "path": "docker.dotnet/3.125.15",
+      "hashPath": "docker.dotnet.3.125.15.nupkg.sha512"
+    },
+    "MQTTnet/5.2.0.1603": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ==",
+      "path": "mqttnet/5.2.0.1603",
+      "hashPath": "mqttnet.5.2.0.1603.nupkg.sha512"
+    },
+    "Newtonsoft.Json/13.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ppPFpBcvxdsfUonNcvITKqLl3bqxWbDCZIzDWHzjpdAHRFfZe0Dw9HmA0+za13IdyrgJwpkDTDA9fHaxOrt20A==",
+      "path": "newtonsoft.json/13.0.1",
+      "hashPath": "newtonsoft.json.13.0.1.nupkg.sha512"
+    }
+  }
+}

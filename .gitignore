@@ -1,0 +1,7 @@
+cache/
+config/
+logs/
+app/bin/
+app/obj/
+.DS_Store
+*.lock
