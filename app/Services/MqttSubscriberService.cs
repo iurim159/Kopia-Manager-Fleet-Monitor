@@ -16,7 +16,8 @@ namespace KopiaMonitorApp.Services
         public bool GarbageCollectorSuccess { get; set; } = true;
         public string Details { get; set; } = string.Empty;
         public string RawOutput { get; set; } = string.Empty;
-
+        public bool VerifySuccess { get; set; } = true;
+        public double VerifyPercent { get; set; } = 1.0; //da modificare a seconda dell'esigenza
         // Proprietà calcolata per identificare univocamente l'agente e il container
         public string UniqueKey => $"{AgentId}_{ContainerName}";
     }

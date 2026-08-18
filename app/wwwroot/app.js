@@ -58,10 +58,19 @@ function renderCards(devices) {
         
         const lastCheck = new Date(dev.lastCheckedAt).toLocaleTimeString('it-IT');
 
+        // Formattazione specifica per la percentuale di verifica (es. 0.0001%)
+        const verifyPercentFormatted = (dev.verifyPercent !== undefined && dev.verifyPercent !== null)
+            ? Number(dev.verifyPercent).toFixed(4)
+            : '0.0001';
+
+        const gcSuccess = dev.garbageCollectorSuccess;
+        const verifySuccess = dev.verifySuccess !== undefined ? dev.verifySuccess : dev.VerifySuccess;
+        
         const alertsList = dev.alerts && dev.alerts.length > 0 
-            ? dev.alerts.map(a => `<li class="alert-item-error">⚠ ${a}</li>`).join('')
+            ? dev.alerts.map(a => `<li class="alert-item-error">⚠ ${escapeHtml(a)}</li>`).join('')
             : '<li class="alert-item-ok">✓ Parametri regolari</li>';
 
+        const detailsText = dev.details ? escapeHtml(dev.details) : '';
         const rawLogText = dev.rawOutput || 'Nessun log salvato.';
 
         if (!cardEl) {
@@ -72,10 +81,10 @@ function renderCards(devices) {
             cardEl.innerHTML = `
                 <div class="card-header">
                     <div>
-                        <div class="agent-title">${dev.deviceName || ''}</div>
-                        <div class="agent-subtitle">${dev.containerName || ''}</div>
+                        <div class="agent-title">${escapeHtml(dev.deviceName || dev.deviceId || '')}</div>
+                        <div class="agent-subtitle">${escapeHtml(dev.containerName || '')}</div>
                     </div>
-                    <span class="status-badge ${badgeClass}" id="badge-${devId}">${dev.status || ''}</span>
+                    <span class="status-badge ${badgeClass}" id="badge-${devId}">${escapeHtml(dev.status || '')}</span>
                 </div>
 
                 <div class="card-body">
@@ -83,12 +92,22 @@ function renderCards(devices) {
                         <span class="info-label">Full Require-Contents</span>
                         <span class="info-value" id="fullreq-${devId}">${lastFullReq}</span>
                     </div>
+
                     <div class="info-row">
                         <span class="info-label">Garbage Collector</span>
-                        <span class="info-value" id="gc-${devId}" style="color: ${dev.garbageCollectorSuccess ? 'var(--accent-green)' : 'var(--accent-red)'}">
-                            ${dev.garbageCollectorSuccess ? 'OK' : 'FAIL'}
+                        <span class="info-value" id="gc-${devId}" style="color: ${gcSuccess ? 'var(--accent-green)' : 'var(--accent-red)'}">
+                            ${gcSuccess ? 'OK' : 'FAIL'}
                         </span>
                     </div>
+
+                    <div class="info-row">
+                        <span class="info-label">Verifica Integrità</span>
+                        <span class="info-value" id="verify-${devId}" style="color: ${verifySuccess ? 'var(--accent-green)' : 'var(--accent-red)'}">
+                            ${verifySuccess ? 'Integrità dei dati garantita' : 'VERIFICA FALLITA'}
+                        </span>
+                    </div>
+
+                    ${detailsText ? `<div class="details-box" id="details-${devId}">${detailsText}</div>` : `<div class="details-box" id="details-${devId}" style="display:none;"></div>`}
 
                     <div class="alerts-box">
                         <ul class="alerts-list" id="alerts-${devId}">
@@ -98,7 +117,7 @@ function renderCards(devices) {
 
                     <div class="log-section">
                         <div class="log-section-header">Log Kopia RAW</div>
-                        <div class="log-box" id="log-${devId}">${rawLogText}</div>
+                        <div class="log-box" id="log-${devId}">${escapeHtml(rawLogText)}</div>
                     </div>
                 </div>
 
@@ -110,7 +129,7 @@ function renderCards(devices) {
             container.appendChild(cardEl);
 
         } else {
-            // Aggiornamento dinamico senza ricostruire l'HTML per evitare flickering
+            // Aggiornamento dinamico senza ricreare il DOM
             const badgeEl = document.getElementById(`badge-${devId}`);
             if (badgeEl) {
                 badgeEl.className = `status-badge ${badgeClass}`;
@@ -122,8 +141,26 @@ function renderCards(devices) {
 
             const gcEl = document.getElementById(`gc-${devId}`);
             if (gcEl) {
-                gcEl.textContent = dev.garbageCollectorSuccess ? 'OK' : 'FAIL';
-                gcEl.style.color = dev.garbageCollectorSuccess ? 'var(--accent-green)' : 'var(--accent-red)';
+                gcEl.textContent = gcSuccess ? 'OK' : 'FAIL';
+                gcEl.style.color = gcSuccess ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+
+            const verifyEl = document.getElementById(`verify-${devId}`);
+            if (verifyEl) {
+                verifyEl.textContent = verifySuccess 
+                    ? 'Integrità dei file garantita' 
+                    : 'VERIFICA FALLITA';
+                verifyEl.style.color = verifySuccess ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+
+            const detailsEl = document.getElementById(`details-${devId}`);
+            if (detailsEl) {
+                if (detailsText) {
+                    detailsEl.textContent = detailsText;
+                    detailsEl.style.display = 'block';
+                } else {
+                    detailsEl.style.display = 'none';
+                }
             }
 
             const alertsEl = document.getElementById(`alerts-${devId}`);
@@ -170,6 +207,16 @@ async function runChecksNow() {
     }
 }
 
-// Avvio immediato + polling ogni 15 secondi
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Avvio immediato e polling ogni 15 secondi
 fetchStatus();
 setInterval(fetchStatus, 15000);

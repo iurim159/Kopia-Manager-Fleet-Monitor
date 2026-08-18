@@ -1,4 +1,4 @@
-# JDoctor - Kopia Manager & Fleet Monitor
+# Kopia Manager & Fleet Monitor
 
 Un'infrastruttura completa per il monitoraggio e la manutenzione automatizzata di istanze **Kopia Backup**. Il sistema raccoglie metriche, log e allarmi in tempo reale tramite **MQTT** da diversi agenti di manutenzione e li espone in una dashboard web moderna, reattiva e sempre aggiornata.
 
@@ -129,9 +129,5 @@ docker logs -f jdoctor-kopia-monitor
 * Per visualizzare i log di un agente specifico:
 ```bash
 docker logs -f jdoctor-kopia-agent
-
-```
-
-
 
 ```
