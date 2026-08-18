@@ -12,7 +12,7 @@ MQTT_TOPIC="kopia/maintenance/${AGENT_ID}/${CONTAINER_NAME}"
 KOPIA_PASS="${KOPIA_PASSWORD:-test-password}"
 
 # Percentuale di verifica file per grandi moli di dati
-VERIFY_PERCENT=1.0
+VERIFY_PERCENT=0.0001
 
 # File persistente per tracciare l'ultimo successo (per il controllo dei 14 giorni)
 LAST_SUCCESS_FILE="/tmp/kopia_last_success_${CONTAINER_NAME}"

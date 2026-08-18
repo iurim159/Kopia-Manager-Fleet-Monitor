@@ -37,7 +37,7 @@ app.MapGet("/api/status", () =>
         hoursExtendedDetected = 0,
         garbageCollectorSuccess = m.GarbageCollectorSuccess,
         verifySuccess = m.VerifySuccess,
-        verifyPercent = 1.0, //da cambiare a seconda dell'esigenza
+        verifyPercent = 0.0001, //da modificare a seconda dell'esigenza
         alerts = (m.Status == "OK") 
                     ? new string[] { } 
                     : new string[] { m.Details },
