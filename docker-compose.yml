@@ -20,7 +20,7 @@ services:
       - start
       - --insecure
       - --address=0.0.0.0:5115
-      - --password=test-password
+      - --password=-password
       - --without-password
       - --allow-extremely-dangerous-unauthenticated-server-on-the-network
     volumes:

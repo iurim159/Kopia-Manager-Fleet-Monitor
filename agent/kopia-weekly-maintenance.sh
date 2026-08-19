@@ -78,8 +78,6 @@ echo "--- Inizio Verification (${VERIFY_PERCENT}%) ---" >> "$LOG_FILE"
 run_kopia snapshot verify --verify-files-percent=${VERIFY_PERCENT} >> "$LOG_FILE" 2>&1
 VERIFY_EXIT_CODE=$?
 
-echo "Exit code verifica: $VERIFY_EXIT_CODE"
-
 if [ $VERIFY_EXIT_CODE -ne 0 ]; then
     STATUS="ERROR"
     VERIFY_SUCCESS=false

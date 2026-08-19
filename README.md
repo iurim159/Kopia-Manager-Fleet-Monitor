@@ -10,7 +10,7 @@ Il progetto è strutturato in una rete multi-container orchestrata da Docker Com
 
 1. **Broker MQTT (EMQX)**: Gestisce il flusso di messaggi, allerte e log RAW tra gli agent e la dashboard.
 2. **Kopia Instance (Kopia UI)**: Istanza server Kopia che gestisce i repository e le attività di backup/snapshot.
-3. **Monitor App (.NET Web API & Frontend)**: Backend in .NET 8 che elabora le metriche MQTT e le distribuisce via REST API, servendo la dashboard web statica.
+3. **Monitor App (.NET Web API & Frontend)**: Backend in .NET 10 che elabora le metriche MQTT e le distribuisce via REST API, servendo la dashboard web statica.
 4. **Agents (Ubuntu + Cron + Mosquitto + Docker CLI)**: Agenti distribuiti che eseguono script periodici di manutenzione (es. Garbage Collector, `full require-contents`) inviando log ed esiti al broker.
 
 ---
