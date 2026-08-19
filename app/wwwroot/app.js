@@ -1,3 +1,5 @@
+let currentDeviceId = null;
+
 function sanitizeId(raw) {
     return String(raw || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
@@ -58,10 +60,6 @@ function renderCards(devices) {
         
         const lastCheck = new Date(dev.lastCheckedAt).toLocaleTimeString('it-IT');
 
-        const verifyPercentFormatted = (dev.verifyPercent !== undefined && dev.verifyPercent !== null)
-            ? Number(dev.verifyPercent).toFixed(4)
-            : '0.0001';
-
         const gcSuccess = dev.garbageCollectorSuccess;
         const verifySuccess = dev.verifySuccess !== undefined ? dev.verifySuccess : dev.VerifySuccess;
         
@@ -83,6 +81,11 @@ function renderCards(devices) {
                         <div class="agent-title">${escapeHtml(dev.deviceName || dev.deviceId || '')}</div>
                         <div class="agent-subtitle">${escapeHtml(dev.containerName || '')}</div>
                     </div>
+                    
+                    <button class="btn-config-card" onclick="openSettingsModal('${devId}')" title="Configura Istanza">
+                        ⚙️ Configura
+                    </button>
+
                     <span class="status-badge ${badgeClass}" id="badge-${devId}">${escapeHtml(dev.status || '')}</span>
                 </div>
 
@@ -126,7 +129,6 @@ function renderCards(devices) {
             `;
 
             container.appendChild(cardEl);
-
         } else {
             const badgeEl = document.getElementById(`badge-${devId}`);
             if (badgeEl) {
@@ -190,13 +192,15 @@ async function runChecksNow() {
         const result = await response.json();
 
         if (!response.ok || result.success === false) {
-            alert("Errore esecuzione: " + (result.message || result.detail || "Impossibile completare la manutenzione."));
+            showToast("Errore esecuzione: " + (result.message || result.detail || "Impossibile completare la manutenzione."), "error");
+        } else {
+            showToast("Controlli eseguiti con successo!", "success");
         }
         
         await fetchStatus();
     } catch (err) {
         console.error("Errore esecuzione controlli:", err);
-        alert("Errore di rete durante la richiesta.");
+        showToast("Errore di rete durante la richiesta.", "error");
     } finally {
         btn.disabled = false;
         icon.className = '';
@@ -215,22 +219,55 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// --- LOGICA DEL MODALE ---
+function showToast(message, type = 'success') {
+    const existingToast = document.getElementById('customToast');
+    if (existingToast) existingToast.remove();
 
-function openSettingsModal() {
+    const toast = document.createElement('div');
+    toast.id = 'customToast';
+    toast.className = `custom-toast ${type}`;
+    toast.textContent = message;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// --- LOGICA DEL MODALE UNIFICATO ---
+
+function openSettingsModal(deviceId) {
+    currentDeviceId = deviceId; 
     document.getElementById('settingsModal').style.display = 'flex';
 }
 
 function closeSettingsModal() {
+    currentDeviceId = null;
     document.getElementById('settingsModal').style.display = 'none';
 }
 
 async function saveAdvancedConfig() {
     const btn = document.querySelector('.btn-save');
-    const verifyPercent = parseFloat(document.getElementById('verifyPercentInput').value);
     
+    // Lettura sicura dei campi unificati attuali
+    const normalEl = document.getElementById('normalInterval');
+    const integrityEl = document.getElementById('integrityInterval');
+    const verifyEl = document.getElementById('verifyPercent');
+
+    const normalInterval = normalEl ? (parseInt(normalEl.value, 10) || 24) : 24;
+    const integrityInterval = integrityEl ? (parseInt(integrityEl.value, 10) || 168) : 168;
+    const verifyPercent = verifyEl ? (parseFloat(verifyEl.value) || 1) : 1;
+    
+    // Payload universale pulito
     const payload = {
-        VerifyPercent: isNaN(verifyPercent) ? 0.0001 : verifyPercent
+        DeviceId: currentDeviceId,
+        NormalVerifyIntervalHours: normalInterval,
+        IntegrityVerifyIntervalHours: integrityInterval,
+        IntegrityVerifyPercentage: verifyPercent
     };
 
     btn.disabled = true;
@@ -244,14 +281,14 @@ async function saveAdvancedConfig() {
         });
 
         if (response.ok) {
-            alert('Configurazione salvata e propagata con successo agli agenti via MQTT!');
+            showToast('Configurazione salvata con successo!', 'success');
             closeSettingsModal();
         } else {
-            alert('Errore durante il salvataggio della configurazione.');
+            showToast('Errore durante il salvataggio della configurazione.', 'error');
         }
     } catch (err) {
         console.error('Errore di rete:', err);
-        alert('Errore di rete durante la comunicazione con il server.');
+        showToast('Errore di rete durante la comunicazione.', 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Salva e Invia';

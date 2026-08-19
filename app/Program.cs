@@ -42,7 +42,7 @@ app.MapGet("/api/status", () =>
         hoursExtendedDetected = 0,
         garbageCollectorSuccess = m.GarbageCollectorSuccess,
         verifySuccess = m.VerifySuccess,
-        verifyPercent = m.VerifyPercent, // Legge la percentuale reale salvata
+        verifyPercent = m.VerifyPercent, 
         alerts = (m.Status == "OK") 
                     ? new string[] { } 
                     : new string[] { m.Details },
@@ -74,4 +74,40 @@ app.MapPost("/api/run-now", async (KopiaMonitorWorker worker, MqttSubscriberServ
     }
 });
 
+// --- NUOVO ENDPOINT PER LA CONFIGURAZIONE AVANZATA ---
+app.MapPost("/api/config/advanced", async (AdvancedConfigDto config, MqttSubscriberService mqttService) =>
+{
+    try
+    {
+        // Includiamo il DeviceId nel payload MQTT in modo che l'agente possa filtrarlo
+        var agentPayload = new 
+        {
+            DeviceId = config.DeviceId, // <-- FONDAMENTALE PER IL FILTRAGGIO
+            VerifyPercent = config.IntegrityVerifyPercentage,
+            NormalVerifyIntervalHours = config.NormalVerifyIntervalHours,
+            IntegrityVerifyIntervalHours = config.IntegrityVerifyIntervalHours
+        };
+
+        string jsonPayload = System.Text.Json.JsonSerializer.Serialize(agentPayload);
+
+        // Invia il messaggio MQTT
+        await mqttService.PublishAsync("kopia/config/advanced", jsonPayload);
+
+        return Results.Ok(new { success = true, message = "Configurazione inviata con successo all'agente!" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Errore durante l'invio della configurazione MQTT: {ex.Message}");
+    }
+});
+
 app.Run();
+
+// --- MODELLO DTO PER RICEVERE IL PAYLOAD DAL FRONTEND ---
+public class AdvancedConfigDto
+{
+    public string DeviceId { get; set; }
+    public int NormalVerifyIntervalHours { get; set; }
+    public int IntegrityVerifyIntervalHours { get; set; }
+    public double IntegrityVerifyPercentage { get; set; }
+}
