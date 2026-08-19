@@ -58,7 +58,6 @@ function renderCards(devices) {
         
         const lastCheck = new Date(dev.lastCheckedAt).toLocaleTimeString('it-IT');
 
-        // Formattazione specifica per la percentuale di verifica (es. 0.0001%)
         const verifyPercentFormatted = (dev.verifyPercent !== undefined && dev.verifyPercent !== null)
             ? Number(dev.verifyPercent).toFixed(4)
             : '0.0001';
@@ -129,7 +128,6 @@ function renderCards(devices) {
             container.appendChild(cardEl);
 
         } else {
-            // Aggiornamento dinamico senza ricreare il DOM
             const badgeEl = document.getElementById(`badge-${devId}`);
             if (badgeEl) {
                 badgeEl.className = `status-badge ${badgeClass}`;
@@ -215,6 +213,49 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+// --- LOGICA DEL MODALE ---
+
+function openSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function saveAdvancedConfig() {
+    const btn = document.querySelector('.btn-save');
+    const verifyPercent = parseFloat(document.getElementById('verifyPercentInput').value);
+    
+    const payload = {
+        VerifyPercent: isNaN(verifyPercent) ? 0.0001 : verifyPercent
+    };
+
+    btn.disabled = true;
+    btn.textContent = 'Salvataggio...';
+
+    try {
+        const response = await fetch('/api/config/advanced', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            alert('Configurazione salvata e propagata con successo agli agenti via MQTT!');
+            closeSettingsModal();
+        } else {
+            alert('Errore durante il salvataggio della configurazione.');
+        }
+    } catch (err) {
+        console.error('Errore di rete:', err);
+        alert('Errore di rete durante la comunicazione con il server.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salva e Invia';
+    }
 }
 
 // Avvio immediato e polling ogni 15 secondi

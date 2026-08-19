@@ -7,29 +7,34 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configurazione delle opzioni
 builder.Services.Configure<AppSettingsConfig>(builder.Configuration.GetSection("KopiaSettings"));
+builder.Services.AddControllers();
 
 // Registrazione Servizi
 builder.Services.AddSingleton<DockerExecService>();
 builder.Services.AddSingleton<KopiaAnalyzerService>();
 builder.Services.AddSingleton<KopiaMonitorWorker>();
 
-// Hosted Services (Worker in background e MQTT Subscriber)
+// Registrazione del servizio MQTT unificato (Sia Subscriber che Publisher)
+builder.Services.AddSingleton<MqttSubscriberService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<MqttSubscriberService>());
+
+// Hosted Service per il worker periodico
 builder.Services.AddHostedService(sp => sp.GetRequiredService<KopiaMonitorWorker>());
-builder.Services.AddHostedService<MqttSubscriberService>();
 
 var app = builder.Build();
 
 // Abilita i file statici (per la Dashboard HTML/JS)
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.MapControllers();
 
-// Minimal API Endpoints
+// Endpoint per ottenere lo stato dei container
 app.MapGet("/api/status", () =>
 {
     var mqttList = MqttSubscriberService.ContainerStatuses.Values.Select(m => new 
     {
-        deviceId = m.UniqueKey,                                    // ID Univoco (es. AGENT_01_kopia-iso-tn-01-kopia)
-        deviceName = $"{m.AgentId} - {m.ContainerName}",           // Titolo visualizzato sulla Card
+        deviceId = m.UniqueKey,
+        deviceName = $"{m.AgentId} - {m.ContainerName}",
         agentId = m.AgentId,
         containerName = m.ContainerName,
         status = m.Status,
@@ -37,7 +42,7 @@ app.MapGet("/api/status", () =>
         hoursExtendedDetected = 0,
         garbageCollectorSuccess = m.GarbageCollectorSuccess,
         verifySuccess = m.VerifySuccess,
-        verifyPercent = 0.0001, //da modificare a seconda dell'esigenza
+        verifyPercent = m.VerifyPercent, // Legge la percentuale reale salvata
         alerts = (m.Status == "OK") 
                     ? new string[] { } 
                     : new string[] { m.Details },
@@ -49,19 +54,13 @@ app.MapGet("/api/status", () =>
 });
 
 // Endpoint per la pressione del tasto "Esegui i controlli ora"
-app.MapPost("/api/run-now", async (KopiaMonitorWorker worker, IMqttClient mqttClient) =>
+app.MapPost("/api/run-now", async (KopiaMonitorWorker worker, MqttSubscriberService mqttService) =>
 {
     await worker.RunChecksAsync();
 
     try
     {
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic("kopia/maintenance/kopia-iso-tn-01-kopia")
-            .WithPayload("start")
-            .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
-
-        await mqttClient.PublishAsync(message);
+        await mqttService.PublishAsync("kopia/maintenance/kopia-iso-tn-01-kopia", "start");
 
         return Results.Ok(new 
         { 

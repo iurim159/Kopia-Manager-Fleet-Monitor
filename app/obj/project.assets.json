@@ -121,11 +121,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/iurim/Desktop/programming/forJ/Kopia-Manager-Fleet-Monitor/app/KopiaMonitorApp.csproj",
+      "projectUniqueName": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/KopiaMonitorApp.csproj",
       "projectName": "KopiaMonitorApp",
-      "projectPath": "/home/iurim/Desktop/programming/forJ/Kopia-Manager-Fleet-Monitor/app/KopiaMonitorApp.csproj",
+      "projectPath": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/KopiaMonitorApp.csproj",
       "packagesPath": "/home/iurim/.nuget/packages/",
-      "outputPath": "/home/iurim/Desktop/programming/forJ/Kopia-Manager-Fleet-Monitor/app/obj/",
+      "outputPath": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/iurim/.nuget/NuGet/NuGet.Config"
