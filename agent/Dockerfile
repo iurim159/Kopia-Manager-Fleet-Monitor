@@ -19,14 +19,20 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copia e imposta i permessi dello script
+# Copia gli script di manutenzione, il listener MQTT e l'entrypoint
 COPY kopia-weekly-maintenance.sh /app/kopia-weekly-maintenance.sh
-RUN chmod +x /app/kopia-weekly-maintenance.sh
+COPY kopia-mqtt-listener.sh /app/kopia-mqtt-listener.sh
+COPY entrypoint.sh /app/entrypoint.sh
 
-# Configura Cron per eseguire lo script ogni giorno a 00:00
+# Rende eseguibili TUTTI gli script
+RUN chmod +x /app/kopia-weekly-maintenance.sh \
+             /app/kopia-mqtt-listener.sh \
+             /app/entrypoint.sh
+
+# Configura Cron per eseguire lo script ogni giorno a 00:00 (fallback di default)
 RUN echo "0 0 * * * root /app/kopia-weekly-maintenance.sh >> /var/log/cron.log 2>&1" > /etc/cron.d/kopia-cron && \
     chmod 0644 /etc/cron.d/kopia-cron && \
     crontab /etc/cron.d/kopia-cron
 
-# Avvia cron in foreground
-CMD ["cron", "-f"]
+# Avvia sia il listener MQTT che cron tramite l'entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

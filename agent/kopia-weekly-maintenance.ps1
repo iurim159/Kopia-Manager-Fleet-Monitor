@@ -2,15 +2,27 @@
 $AgentId = if ($env:AGENT_ID) { $env:AGENT_ID } else { "UNKNOWN_AGENT" }
 $ContainerName = if ($env:CONTAINER_NAME) { $env:CONTAINER_NAME } else { "kopia-iso-tn-01-kopia" }
 $LogFile = "/tmp/kopia-maintenance.log"
-$MqttHost = if ($env:MQTT_HOST) { $env:MQTT_HOST } else { "emqx" }
+$MqttHost = if ($env:MQTT_HOST) { $env:MQTT_HOST } else { "localhost" }
 $MqttPort = if ($env:MQTT_PORT) { $env:MQTT_PORT } else { "1883" }
 
 # Topic dinamico con AGENT_ID
 $MqttTopic = "kopia/maintenance/$AgentId/$ContainerName"
 $KopiaPass = if ($env:KOPIA_PASSWORD) { $env:KOPIA_PASSWORD } else { "test-password" }
 
-# Percentuale di verifica file per grandi moli di dati
-$VerifyPercent = 0.0001
+# --- LETTURA CONFIGURAZIONE DINAMICA (MQTT) ---
+$ConfigSettingsFile = "/tmp/kopia-agent-settings.json"
+$VerifyPercent = 0.0001 # Valore di default
+
+if (Test-Path $ConfigSettingsFile) {
+    try {
+        $jsonConfig = Get-Content $ConfigSettingsFile -Raw | ConvertFrom-Json
+        if ($jsonConfig.VerifyPercent -ne $null) {
+            $VerifyPercent = [double]$jsonConfig.VerifyPercent
+        }
+    } catch {
+        Write-Warning "Impossibile leggere il file di configurazione dinamica, uso il valore predefinito: $VerifyPercent"
+    }
+}
 
 # File persistente per tracciare l'ultimo successo (per il controllo dei 14 giorni)
 $LastSuccessFile = "/tmp/kopia_last_success_$ContainerName"
@@ -84,7 +96,7 @@ if ($LASTEXITCODE -ne 0) {
 # 3. Status della Manutenzione
 Run-Kopia maintenance status | Out-File -FilePath $LogFile -Append -Encoding utf8
 
-# 4. Verification rapida sui file
+# 4. Verification rapida sui file con la percentuale dinamica
 "--- Inizio Verification ($VerifyPercent%) ---" | Out-File -FilePath $LogFile -Append -Encoding utf8
 $verifyOutput = Run-Kopia snapshot verify --verify-files-percent=$VerifyPercent
 $verifyOutput | Out-File -FilePath $LogFile -Append -Encoding utf8
@@ -123,7 +135,7 @@ $filteredLines = foreach ($line in $rawLines) {
 }
 $RawLogContent = [string]::Join("\n", $filteredLines)
 
-# Creazione del Payload JSON
+# Creazione del Payload JSON (includendo la VerifyPercent effettiva utilizzata)
 $payloadObj = @{
     AgentId                 = $AgentId
     ContainerName           = $ContainerName

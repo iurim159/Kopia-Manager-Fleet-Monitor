@@ -11,8 +11,13 @@ MQTT_PORT="${MQTT_PORT:-1883}"
 MQTT_TOPIC="kopia/maintenance/${AGENT_ID}/${CONTAINER_NAME}"
 KOPIA_PASS="${KOPIA_PASSWORD:-test-password}"
 
-# Percentuale di verifica file per grandi moli di dati
-VERIFY_PERCENT=0.0001
+# --- LETTURA CONFIGURAZIONE DINAMICA (MQTT) ---
+SETTINGS_FILE="/app/agent-settings.env"
+VERIFY_PERCENT=0.0001 # Valore di default
+
+if [ -f "$SETTINGS_FILE" ]; then
+    source "$SETTINGS_FILE"
+fi
 
 # File persistente per tracciare l'ultimo successo (per il controllo dei 14 giorni)
 LAST_SUCCESS_FILE="/tmp/kopia_last_success_${CONTAINER_NAME}"
@@ -73,7 +78,7 @@ fi
 # 3. Status della Manutenzione
 run_kopia maintenance status >> "$LOG_FILE" 2>&1
 
-# 4. Verification rapida sui file
+# 4. Verification rapida sui file con la percentuale dinamica
 echo "--- Inizio Verification (${VERIFY_PERCENT}%) ---" >> "$LOG_FILE"
 run_kopia snapshot verify --verify-files-percent=${VERIFY_PERCENT} >> "$LOG_FILE" 2>&1
 VERIFY_EXIT_CODE=$?
@@ -91,8 +96,7 @@ else
 fi
 
 # --- AGGIORNAMENTO DEL TIMESTAMP ---
-# Se la manutenzione e la verifica odierne sono andate bene (nessun errore nei comandi kopia),
-# aggiorniamo il file con il timestamp attuale così sparisce lo stato CRITICAL.
+# Se la manutenzione e la verifica odierne sono andate bene, aggiorniamo il file col timestamp attuale
 if [ "$GC_SUCCESS" = true ] && [ "$VERIFY_SUCCESS" = true ]; then
     echo "$CURRENT_EPOCH" > "$LAST_SUCCESS_FILE"
 fi
@@ -101,7 +105,7 @@ echo "=== Fine Manutenzione: $(date) ===" >> "$LOG_FILE"
 
 LAST_MAINTENANCE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Escludiamo le righe piene di hash / ID dei blob (es. stringhe esadecimali lunghe o linee di contenuto ripetitivo)
+# Escludiamo le righe piene di hash / ID dei blob
 RAW_LOG_CONTENT=$(grep -vE "([a-f0-9]{32,}|blob|pack|index)" "$LOG_FILE" | tr -d '\r' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
 PAYLOAD=$(cat <<EOF
 {

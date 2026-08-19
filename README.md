@@ -1,86 +1,50 @@
-# Kopia Manager & Fleet Monitor
+# Kopia Manager 🚀
 
 Un'infrastruttura completa per il monitoraggio e la manutenzione automatizzata di istanze **Kopia Backup**. Il sistema raccoglie metriche, log e allarmi in tempo reale tramite **MQTT** da diversi agenti di manutenzione e li espone in una dashboard web moderna, reattiva e sempre aggiornata.
+![](Screenshot.png)
+---
+
+## 🏗️ Architettura del Sistema
+
+Il sistema è composto da tre macro-componenti:
+
+1. **Broker MQTT (EMQX):** Il "centralino" che smista i messaggi tra la dashboard e i vari agenti di backup.
+2. **Dashboard di Monitoraggio (.NET & Web):** Raccoglie lo stato di tutti gli agenti tramite MQTT, mostra le card di ristato e permette di inviare comandi di configurazione e manutenzione globali o mirati.
+3. **Agenti Kopia (Linux / Windows):** Eseguono script periodici di manutenzione (`maintenance run --full`) e verifica (`snapshot verify`), inviando i log e lo stato al broker. Ricevono inoltre in tempo reale i comandi di configurazione avanzata (es. percentuale di verifica e frequenza dei cron).
 
 ---
 
-## 🏗 Architettura del Sistema
-
-Il progetto è strutturato in una rete multi-container orchestrata da Docker Compose:
-
-1. **Broker MQTT (EMQX)**: Gestisce il flusso di messaggi, allerte e log RAW tra gli agent e la dashboard.
-2. **Kopia Instance (Kopia UI)**: Istanza server Kopia che gestisce i repository e le attività di backup/snapshot.
-3. **Monitor App (.NET Web API & Frontend)**: Backend in .NET 10 che elabora le metriche MQTT e le distribuisce via REST API, servendo la dashboard web statica.
-4. **Agents (Ubuntu + Cron + Mosquitto + Docker CLI)**: Agenti distribuiti che eseguono script periodici di manutenzione (es. Garbage Collector, `full require-contents`) inviando log ed esiti al broker.
-
----
-
-## 📁 Struttura del Progetto
+## 📂 Struttura del Progetto
 
 ```text
-.
-├── agent/                         # Container dell'agente di manutenzione
-│   ├── Dockerfile                 # Ambiente Ubuntu con Cron, Mosquitto & Docker CLI
-│   └── kopia-weekly-maintenance.sh# Script di manutenzione eseguito dall'agente
-├── app/                           # Backend .NET 8 (KopiaMonitorApp)
-│   ├── Models/                    # Modelli dati per metriche e dispositivi
-│   ├── Properties/
-│   ├── Services/                  # Servizio di ascolto MQTT e gestione stato
-│   ├── wwwroot/                   # Frontend Web (HTML, CSS, JS)
-│   │   ├── index.html             # Layout principale dashboard
-│   │   ├── style.css              # Stili CSS responsive & temi dark
-│   │   └── app.js                 # Logica dinamica e aggiornamento realtime
-│   ├── appsettings.json           # Configurazione dell'applicazione .NET
-│   └── Program.cs                 # Entrypoint .NET API
-├── cache/                         # Repository cache di Kopia
-├── config/                        # Configurazione del repository Kopia
-├── logs/                          # Log condivisi di manutenzione ed esecuzione
-├── docker-compose.yml             # Orchestrazione dell'intera flotta
-├── Dockerfile                     # Dockerfile per il backend .NET (KopiaMonitorApp)
-├── kopia-maintenance-crontab      # Pianificazione Cron
-├── kopia-weekly-maintenance.sh    # Script di utilità manutenzione host
-└── run-maintenance.sh             # Entrypoint per l'avvio rapido manuale
+jdoctor-kopia-manager/
+├── app/                      # Codice sorgente della Dashboard .NET
+│   ├── Controllers/          # API Controllers (es. ConfigController.cs)
+│   ├── Services/             # Servizio MQTT (MqttSubscriberService.cs)
+│   └── Program.cs            # Entry point dell'applicazione .NET
+├── agent/                    # Script e configurazioni per gli Agenti Linux
+│   ├── entrypoint.sh         # Avvio in background del listener e di cron
+│   ├── kopia-mqtt-listener.sh# Listener MQTT per ricezione config avanzate
+│   └── kopia-weekly-mainte...# Script di manutenzione periodica Kopia
+├── docker-compose.yml        # Orchestrazione dei container (Dashboard + EMQX)
+└── README.md                 # Questo manuale
 
 ```
 
 ---
 
-## 🚀 Requisiti di Sistema
+## ⚙️ 1. Configurazione e Avvio del Backend (Docker)
 
-* **Docker** >= 20.10
-* **Docker Compose** (plugin `docker compose` o binario `docker-compose`)
-* Porte libere sull'host:
-* `1883`: Broker MQTT
-* `18083`: Dashboard di amministrazione EMQX
-* `5000`: Dashboard Web JDoctor
-* `5115`: Kopia Web UI
+Assicurati di avere installato **Docker** e **Docker Compose** sulla macchina server.
 
-
-
----
-
-## 🛠 Guida all'Installazione e Avvio
-
-### 1. Clonare il Repository
-
+1. Posizionati nella cartella principale del progetto:
 ```bash
-git clone <URL_DEL_TUO_REPOSITORY>
 cd jdoctor-kopia-manager
 
 ```
 
-### 2. Struttura dei file Web
 
-Assicurati che i 3 file dell'interfaccia grafica aggiornati siano posizionati all'interno della cartella `app/wwwroot/`:
-
-* `app/wwwroot/index.html`
-* `app/wwwroot/style.css`
-* `app/wwwroot/app.js`
-
-### 3. Ricostruire e Avviare i Container
-
-Per applicare le modifiche ed evitare problemi di cache Docker, avvia la build da zero:
-
+2. Avvia i container in background con un build pulito:
 ```bash
 docker compose down
 docker compose build --no-cache
@@ -88,46 +52,112 @@ docker compose up -d
 
 ```
 
-### 4. Verificare lo stato dei Servizi
+
+3. **Verifica dei servizi attivi:**
+* **Dashboard .NET:** Disponibile su `http://localhost:5000` (o la porta configurata).
+* **Broker EMQX:** Pannello di controllo MQTT disponibile su `http://localhost:18083` (se esposto) e porta broker su `1883`.
+
+
+
+---
+
+## 🐧 2. Setup degli Agenti Linux (Docker / Container)
+
+Ogni agente Linux gira all'interno di un container dedicato gestito da un file `entrypoint.sh` che avvia in autonomia l'ascolto dei comandi MQTT.
+
+### File `entrypoint.sh` dell'agente:
 
 ```bash
-docker compose ps
+#!/bin/bash
+
+# 1. Avvia il listener MQTT in background per le configurazioni dinamiche
+/app/kopia-mqtt-listener.sh &
+
+# 2. Avvia Cron in foreground (mantiene in vita il container Docker)
+exec cron -f
+
+```
+
+### Script Listener MQTT (`kopia-mqtt-listener.sh`):
+
+Ascolta sul topic `kopia/config/advanced/#` e aggiorna le impostazioni locali (`agent-settings.env`) e il crontab di sistema:
+
+```bash
+#!/bin/bash
+MQTT_HOST="${MQTT_HOST:-emqx}"
+MQTT_PORT="${MQTT_PORT:-1883}"
+TOPIC="kopia/config/advanced/#"
+
+while true; do
+    mosquitto_sub -h "$MQTT_HOST" -p "$MQTT_PORT" -t "$TOPIC" | while read -r json_message; do
+        echo "Ricevuta nuova configurazione MQTT: $json_message"
+        echo "$json_message" > /app/agent-settings.env
+        
+        # Estrazione opzionale ed aggiornamento crontab
+        # ... logica di aggiornamento crontab ...
+    done
+    sleep 10
+done
 
 ```
 
 ---
 
-## 🌐 Porte e Interfacce Web
+## 🪟 3. Setup dei Client Windows
 
-| Servizio | URL / Porta | Descrizione |
-| --- | --- | --- |
-| **JDoctor Dashboard** | `http://localhost:5000` | Dashboard di monitoraggio con log RAW fissi |
-| **Kopia UI** | `http://localhost:5115` | Interfaccia nativa di gestione Kopia |
-| **EMQX Admin** | `http://localhost:18083` | Dashboard di gestione del Broker MQTT (User: `admin` / Pass: `public`) |
-| **MQTT Broker** | `localhost:1883` | Endpoint per la trasmissione dei dati degli agenti |
+Per estendere il monitoraggio e la configurazione dinamica a macchine o container Windows, utilizza gli script PowerShell dedicati.
+
+### A. Listener MQTT per Windows (`kopia-mqtt-listener.ps1`)
+
+Salvalo ed eseguilo in background sulla macchina Windows (puoi registrarlo tramite Utilità di Pianificazione / Task Scheduler all'avvio):
+
+```powershell
+$MqttHost = if ($env:MQTT_HOST) { $env:MQTT_HOST } else { "localhost" }
+$Topic = "kopia/config/advanced"
+$ConfigFile = "$env:TEMP\kopia-agent-settings.json"
+
+Write-Host "Avvio listener MQTT per Windows..." -ForegroundColor Cyan
+
+while ($true) {
+    try {
+        mosquitto_sub -h $MqttHost -t $Topic | ForEach-Object {
+            $jsonMessage = $_
+            Write-Host "Configurazione ricevuta: $jsonMessage" -ForegroundColor Green
+            $jsonMessage | Out-File -FilePath $ConfigFile -Encoding utf8
+        }
+    } catch {
+        Start-Sleep -Seconds 10
+    }
+}
+
+```
+
+### B. Script di Manutenzione Windows (`kopia-weekly-maintenance.ps1`)
+
+Eseguito periodicamente (es. tramite Task Scheduler di Windows), legge la configurazione dinamica e invia l'esito al broker MQTT:
+
+* Legge i parametri da `$env:TEMP\kopia-agent-settings.json` (se aggiornati via MQTT).
+* Esegue il Garbage Collector e lo `snapshot verify` con la percentuale dinamica.
+* Invia il report strutturato in JSON al broker EMQX tramite `mosquitto_pub`.
 
 ---
 
-## 💻 Funzionalità Dashboard Frontend
+## 🔌 4. API e Test del Sistema
 
-* **Istanze Fisse e Log RAW Permanenti**: Nessun pannello a comparsa. I log delle istanze Kopia sono sempre aperti ed estesi per una rapida consultazione.
-* **Auto-refresh in Background**: Stato dei nodi, allarmi e log si aggiornano automaticamente ogni 15 secondi tramite chiamate background REST (`/api/status`).
-* **Pulsante "Esegui Controlli Ora"**: Invoca la rotta `/api/run-now` per forzare la manutenzione immediata con feedback visivo sullo stato dell'operazione.
-* **Layout Responsive (Mobile & Desktop)**: Interfaccia ottimizzata sia per schermi desktop ad alta risoluzione (card ampie a partire da `420px`), sia per consultazione via smartphone/tablet.
+Puoi testare l'invio di una configurazione avanzata (es. modifica della percentuale di verifica dei file al `0.005%`) chiamando l'endpoint della dashboard .NET:
+
+```bash
+curl -X POST http://localhost:5000/api/config/advanced \
+     -H "Content-Type: application/json" \
+     -d '{"VerifyPercent": 0.005}'
+
+```
+
+La dashboard pubblicherà il comando via MQTT sul topic `kopia/config/advanced`, il quale verrà intercettato all'istante da tutti gli agenti (Linux e Windows), aggiornando i loro file di configurazione locali in tempo reale.
 
 ---
 
-## 🔧 Manutenzione e Log
+## 🛠️ Risoluzione Problemi (Troubleshooting)
 
-* Per visualizzare i log del container di monitoraggio .NET:
-```bash
-docker logs -f jdoctor-kopia-monitor
-
-```
-
-
-* Per visualizzare i log di un agente specifico:
-```bash
-docker logs -f jdoctor-kopia-agent
-
-```
+* **Connessione MQTT rifiutata (`Connection refused`):** Assicurati che il nome host del broker nei servizi sia `emqx` (se all'interno della stessa rete Docker) o l'IP corretto della macchina se eseguito dall'esterno.
+* **Il listener non riceve i messaggi:** Verifica che il topic configurato nel listener corrisponda esattamente a quello pubblicato dal controller .NET (`kopia/config/advanced`). Utilizza `mosquitto_sub` da terminale per monitorare il traffico sul broker in tempo reale.

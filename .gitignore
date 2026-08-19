@@ -1,7 +1,12 @@
-cache/
-config/
-logs/
-app/bin/
-app/obj/
+/cache/
+/config/
+/logs/
+/app/bin/
+/app/obj/
 .DS_Store
 *.lock
+# Kopia repository data and local runtimes
+/config/repo-data/
+/config/repository.config
+/config/*.mlock
+/config/ui-preferences.json

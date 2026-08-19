@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # 1. Broker MQTT EMQX
   emqx:
@@ -7,6 +9,8 @@ services:
     ports:
       - "1883:1883"
       - "18083:18083"
+    networks:
+      - kopia-net
 
   # 2. Istanza Kopia
   kopia-ui:
@@ -15,18 +19,23 @@ services:
     restart: always
     ports:
       - "5115:5115"
+    environment:
+      - KOPIA_PASSWORD=test-password
     command:
       - server
       - start
       - --insecure
       - --address=0.0.0.0:5115
-      - --password=-password
-      - --without-password
+      - --config-file=/app/config/repository.config
+      - --password=test-password
       - --allow-extremely-dangerous-unauthenticated-server-on-the-network
     volumes:
       - ./config:/app/config
       - ./cache:/app/cache
       - ./logs:/var/log
+      - ./repo:/app/repo
+    networks:
+      - kopia-net
 
   # 3. La tua Dashboard .NET
   kopia-monitor-app:
@@ -36,7 +45,7 @@ services:
     container_name: jdoctor-kopia-monitor
     restart: always
     ports:
-      - "5000:5000"
+      - "5000:8080"
     environment:
       - MQTT__Host=emqx
       - MQTT__Port=1883
@@ -47,8 +56,10 @@ services:
     depends_on:
       - emqx
       - kopia-ui
+    networks:
+      - kopia-net
 
-  # 4. PRIMO AGENT (Ubuntu + Cron + Mosquitto + Docker CLI)
+  # 4. PRIMO AGENT
   kopia-monitor-agent:
     build:
       context: ./agent
@@ -63,6 +74,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - emqx
+    networks:
+      - kopia-net
 
   # 5. SECONDO AGENT
   kopia-monitor-agent2:
@@ -79,3 +92,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - emqx
+    networks:
+      - kopia-net
+
+networks:
+  kopia-net:
+    driver: bridge

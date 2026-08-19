@@ -13,7 +13,7 @@ COPY --from=build /app/publish .
 RUN chown -R app:app /app
 
 USER app
-ENV ASPNETCORE_URLS=http://+:5000
-EXPOSE 5000
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "KopiaMonitorApp.dll"]
