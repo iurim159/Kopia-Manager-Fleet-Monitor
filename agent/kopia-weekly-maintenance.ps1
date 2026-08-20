@@ -1,160 +1,240 @@
-# --- CONFIGURAZIONE DINAMICA ---
-$AgentId = if ($env:AGENT_ID) { $env:AGENT_ID } else { "UNKNOWN_AGENT" }
-$ContainerName = if ($env:CONTAINER_NAME) { $env:CONTAINER_NAME } else { "kopia-iso-tn-01-kopia" }
-$LogFile = "/tmp/kopia-maintenance.log"
-$MqttHost = if ($env:MQTT_HOST) { $env:MQTT_HOST } else { "localhost" }
-$MqttPort = if ($env:MQTT_PORT) { $env:MQTT_PORT } else { "1883" }
+param(
+    [string]$Mode = "normal"
+)
 
-# Topic dinamico con AGENT_ID
-$MqttTopic = "kopia/maintenance/$AgentId/$ContainerName"
+# --- CONFIGURAZIONE ---
+$AgentId = if ($env:AGENT_ID) { $env:AGENT_ID } else { "UNKNOWN_AGENT" }
+$ContainerName = if ($env:CONTAINER_NAME) { $env:CONTAINER_NAME } else { "kopia-windows-node" }
+
+$TempDir = [System.IO.Path]::GetTempPath()
+$LogFile = Join-Path $TempDir "kopia-maintenance-$Mode.log"
+$ConfigSettingsFile = Join-Path $TempDir "kopia-agent-settings.json"
+$LastSuccessFile = Join-Path $TempDir "kopia_last_success_${ContainerName}_${Mode}"
+
+$MqttHost = if ($env:MQTT_HOST) { $env:MQTT_HOST } else { "localhost" }
+$MqttPort = if ($env:MQTT_PORT) { [int]$env:MQTT_PORT } else { 1883 }
+$MqttTopic = "kopia/maintenance/$AgentId/$ContainerName/$Mode"
 $KopiaPass = if ($env:KOPIA_PASSWORD) { $env:KOPIA_PASSWORD } else { "test-password" }
 
-# --- LETTURA CONFIGURAZIONE DINAMICA (MQTT) ---
-$ConfigSettingsFile = "/tmp/kopia-agent-settings.json"
-$VerifyPercent = 0.0001 # Valore di default
+$StartDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
+"=== Inizio Manutenzione Kopia ($Mode) [$ContainerName] da Agent [$AgentId]: $StartDate ===" | Out-File -FilePath $LogFile -Encoding utf8
+
+# --- 1. GESTIONE INSTALLAZIONE KOPIA (UNICA E BLOCCANTE) ---
+$script:ResolvedKopiaExe = $null
+
+function Get-KopiaExecutable {
+    if ($script:ResolvedKopiaExe -and (Test-Path $script:ResolvedKopiaExe)) {
+        return $script:ResolvedKopiaExe
+    }
+
+    if ($env:KOPIA_PATH -and (Test-Path $env:KOPIA_PATH)) {
+        $script:ResolvedKopiaExe = (Resolve-Path $env:KOPIA_PATH).Path
+        return $script:ResolvedKopiaExe
+    }
+    
+    $existingCmd = Get-Command kopia -ErrorAction SilentlyContinue
+    if ($existingCmd) {
+        $script:ResolvedKopiaExe = "kopia"
+        return $script:ResolvedKopiaExe
+    }
+
+    $defaultWinPath = "C:\Program Files\Kopia\kopia.exe"
+    if (Test-Path $defaultWinPath) {
+        $script:ResolvedKopiaExe = $defaultWinPath
+        return $script:ResolvedKopiaExe
+    }
+
+    $TargetExe = Join-Path $TempDir "kopia-bin\kopia.exe"
+    if (Test-Path $TargetExe) {
+        $script:ResolvedKopiaExe = $TargetExe
+        return $TargetExe
+    }
+
+    Write-Host "Kopia non trovato sul sistema. Download e installazione automatica in corso..." -ForegroundColor Yellow
+    "Kopia non trovato. Avvio download automatico..." | Out-File -FilePath $LogFile -Append -Encoding utf8
+    
+    $InstallDir = Join-Path $TempDir "kopia-bin"
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+    }
+    $zipPath = Join-Path $InstallDir "kopia.zip"
+
+    try {
+        $downloadUrl = "https://github.com/kopia/kopia/releases/download/v0.18.2/kopia-0.18.2-windows-x64.zip"
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UserAgent "PowerShell-KopiaManager"
+        Expand-Archive -Path $zipPath -DestinationPath $InstallDir -Force
+        
+        $extractedFolder = Get-ChildItem $InstallDir -Directory | Where-Object { $_.Name -like "kopia-*" }
+        if ($extractedFolder) {
+            Move-Item -Path (Join-Path $extractedFolder.FullName "kopia.exe") -Destination $TargetExe -Force
+        }
+        
+        if (Test-Path $TargetExe) {
+            Write-Host "Kopia installato con successo in: $TargetExe" -ForegroundColor Green
+            "Kopia installato con successo in: $TargetExe" | Out-File -FilePath $LogFile -Append -Encoding utf8
+            $script:ResolvedKopiaExe = $TargetExe
+            return $TargetExe
+        }
+    } catch {
+        $errMessage = "Impossibile scaricare Kopia automaticamente: $_"
+        Write-Error $errMessage
+        $errMessage | Out-File -FilePath $LogFile -Append -Encoding utf8
+    }
+
+    return $null
+}
+
+$KopiaExePath = Get-KopiaExecutable
+if ($null -eq $KopiaExePath) {
+    $critMsg = "ERRORE CRITICO: Impossibile trovare o installare Kopia. Interruzione script."
+    Write-Error $critMsg
+    $critMsg | Out-File -FilePath $LogFile -Append -Encoding utf8
+    exit 1
+}
+
+# --- 2. INVIO MQTT NATIVO VIA TCP ---
+function Send-MqttMessage {
+    param(
+        [string]$Broker,
+        [int]$Port,
+        [string]$Topic,
+        [string]$Payload
+    )
+
+    try {
+        $socket = [Net.Sockets.TcpClient]::new()
+        $socket.Connect($Broker, $Port)
+        if (-not $socket.Connected) { return $false }
+
+        $stream = $socket.GetStream()
+
+        $protocolName = [System.Text.Encoding]::UTF8.GetBytes("MQTT")
+        $variableHeader = [byte[]]@(0x00, 0x04) + $protocolName + [byte[]]@(0x04, 0x02, 0x00, 0x3C, 0x00, 0x00)
+        $connectPacket = [byte[]]@(0x10) + [byte[]]$variableHeader.Length + $variableHeader
+
+        $stream.Write($connectPacket, 0, $connectPacket.Length)
+        Start-Sleep -Milliseconds 200
+
+        $topicBytes = [System.Text.Encoding]::UTF8.GetBytes($Topic)
+        $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($Payload)
+        
+        $topicLen = [byte[]]@([BitConverter]::GetBytes([uint16]$topicBytes.Length)[1], [BitConverter]::GetBytes([uint16]$topicBytes.Length)[0])
+        
+        # Calcolo corretto Remaining Length (gestisce payload grandi oltre 127 byte)
+        $remainingLength = $topicLen.Length + $topicBytes.Length + $payloadBytes.Length
+        $encodedRemainingLength = @()
+        do {
+            $digit = $remainingLength % 128
+            $remainingLength = [Math]::Floor($remainingLength / 128)
+            if ($remainingLength -gt 0) {
+                $digit = $digit -bor 128
+            }
+            $encodedRemainingLength += [byte]$digit
+        } while ($remainingLength -gt 0)
+
+        $publishHeader = [byte[]]@(0x30) + $encodedRemainingLength
+        
+        $publishPacket = $publishHeader + $topicLen + $topicBytes + $payloadBytes
+        $stream.Write($publishPacket, 0, $publishPacket.Length)
+
+        $disconnectPacket = [byte[]]@(0xE0, 0x00)
+        $stream.Write($disconnectPacket, 0, $disconnectPacket.Length)
+
+        $stream.Close()
+        $socket.Close()
+        return $true
+    } catch {
+        Write-Warning "Errore nell'invio MQTT via TCP nativo: $_"
+        return $false
+    }
+}
+
+# --- ESECUZIONE LOGICA ---
+$VerifyPercent = 1
+$CurrentInterval = 24
 
 if (Test-Path $ConfigSettingsFile) {
     try {
         $jsonConfig = Get-Content $ConfigSettingsFile -Raw | ConvertFrom-Json
-        if ($jsonConfig.VerifyPercent -ne $null) {
-            $VerifyPercent = [double]$jsonConfig.VerifyPercent
+        if ($Mode -eq "integrity") {
+            if ($jsonConfig.IntegrityVerifyPercentage -ne $null) { $VerifyPercent = [double]$jsonConfig.IntegrityVerifyPercentage }
+            if ($jsonConfig.IntegrityVerifyIntervalHours -ne $null) { $CurrentInterval = [int]$jsonConfig.IntegrityVerifyIntervalHours }
+        } else {
+            if ($jsonConfig.NormalVerifyIntervalHours -ne $null) { $CurrentInterval = [int]$jsonConfig.NormalVerifyIntervalHours }
         }
-    } catch {
-        Write-Warning "Impossibile leggere il file di configurazione dinamica, uso il valore predefinito: $VerifyPercent"
-    }
+    } catch {}
 }
 
-# File persistente per tracciare l'ultimo successo (per il controllo dei 14 giorni)
-$LastSuccessFile = "/tmp/kopia_last_success_$ContainerName"
-$MaxDaysAllowed = 14
-
-$StartDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
-"=== Inizio Manutenzione Kopia ($ContainerName) da Agent [$AgentId]: $StartDate ===" | Out-File -FilePath $LogFile -Encoding utf8
+if ($Mode -eq "integrity") {
+    $Details = "Verification (integrity al ${VerifyPercent}%) completata senza errori."
+} else {
+    $VerifyPercent = $null
+    $Details = "Manutenzione e Garbage Collector completati senza errori."
+}
 
 $Status = "OK"
-$Details = "Manutenzione, Garbage Collector e Verification ($VerifyPercent%) completati senza errori."
 $GcSuccess = $true
 $VerifySuccess = $true
 
 function Run-Kopia {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$KopiaArgs
-    )
-    
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$KopiaArgs)
     $env:KOPIA_PASSWORD = $KopiaPass
-    $kopiaCmd = Get-Command kopia -ErrorAction SilentlyContinue
+    & $KopiaExePath @KopiaArgs 2>&1
+}
 
-    if ($kopiaCmd) {
-        & kopia @KopiaArgs 2>&1
-    } else {
-        & docker exec -e KOPIA_PASSWORD=$KopiaPass $ContainerName kopia @KopiaArgs 2>&1
+if ($Mode -eq "normal") {
+    Run-Kopia maintenance set --owner=me | Out-File -FilePath $LogFile -Append -Encoding utf8
+    $maintOutput = Run-Kopia maintenance run --full --safety=full
+    $maintOutput | Out-File -FilePath $LogFile -Append -Encoding utf8
+
+    if ($LASTEXITCODE -ne 0) {
+        $Status = "ERROR"
+        $GcSuccess = $false
+        $Details = "Errore durante l'esecuzione del Garbage Collector."
     }
+    Run-Kopia maintenance status | Out-File -FilePath $LogFile -Append -Encoding utf8
 }
 
-# --- 0. CONTROLLO DEI 14 GIORNI (BASATO SUL PASSATO) ---
-$CurrentEpoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-
-if (Test-Path $LastSuccessFile) {
-    # Leggiamo il file pulendo eventuali spazi o ritorni a capo
-    $LastSuccessEpochStr = (Get-Content $LastSuccessFile -Raw).Trim()
-    
-    # Verifichiamo che sia un numero valido
-    if ($LastSuccessEpochStr -match '^\d+$') {
-        $LastSuccessEpoch = [int64]$LastSuccessEpochStr
-        $DiffSeconds = $CurrentEpoch - $LastSuccessEpoch
-        $MaxSeconds = $MaxDaysAllowed * 86400
-
-        if ($DiffSeconds -gt $MaxSeconds) {
-            $Status = "CRITICAL"
-            $DaysAgo = [Math]::Floor($DiffSeconds / 86400)
-            $Details = "ATTENZIONE: Nessuna manutenzione completa riuscita negli ultimi $DaysAgo giorni (limite: $MaxDaysAllowed giorni)."
-            "CRITICAL: Nessuna manutenzione completa riuscita negli ultimi $DaysAgo giorni (limite: $MaxDaysAllowed giorni)." | Out-File -FilePath $LogFile -Append -Encoding utf8
-        }
-    } else {
-        # Se il file contiene per errore una stringa non numerica, lo resettiamo
-        $CurrentEpoch | Out-File -FilePath $LastSuccessFile -Encoding utf8
+if ($Mode -eq "integrity") {
+    $verifyOutput = Run-Kopia snapshot verify --verify-files-percent=$VerifyPercent
+    $verifyOutput | Out-File -FilePath $LogFile -Append -Encoding utf8
+    if ($LASTEXITCODE -ne 0) {
+        $Status = "ERROR"
+        $VerifySuccess = $false
+        $Details = "Errore durante la verifica dei file."
     }
-} else {
-    # Prima esecuzione in assoluto: creiamo il file con il timestamp attuale
-    $CurrentEpoch | Out-File -FilePath $LastSuccessFile -Encoding utf8
-}
-
-# 1. Assegna l'owner della manutenzione all'utente corrente (evita il blocco 'auto')
-Run-Kopia maintenance set --owner=me | Out-File -FilePath $LogFile -Append -Encoding utf8
-
-# 2. Esecuzione Manutenzione Full e Garbage Collector
-$maintOutput = Run-Kopia maintenance run --full --safety=full
-$maintOutput | Out-File -FilePath $LogFile -Append -Encoding utf8
-
-if ($LASTEXITCODE -ne 0) {
-    $Status = "ERROR"
-    $GcSuccess = $false
-    $Details = "Errore durante l'esecuzione del Garbage Collector / Manutenzione Full."
-}
-
-# 3. Status della Manutenzione
-Run-Kopia maintenance status | Out-File -FilePath $LogFile -Append -Encoding utf8
-
-# 4. Verification rapida sui file con la percentuale dinamica
-"--- Inizio Verification ($VerifyPercent%) ---" | Out-File -FilePath $LogFile -Append -Encoding utf8
-$verifyOutput = Run-Kopia snapshot verify --verify-files-percent=$VerifyPercent
-$verifyOutput | Out-File -FilePath $LogFile -Append -Encoding utf8
-$VerifyExitCode = $LASTEXITCODE
-
-if ($VerifyExitCode -ne 0) {
-    $Status = "ERROR"
-    $VerifySuccess = $false
-    if ($GcSuccess -eq $true) {
-        $Details = "Errore durante la verifica dei file (Snapshot Verify $VerifyPercent%)."
-    } else {
-        $Details = "Errori riscontrati sia nel Garbage Collector che nella Verification."
-    }
-} else {
-    $VerifySuccess = $true
-}
-
-# --- AGGIORNAMENTO DEL TIMESTAMP ---
-# Se la manutenzione e la verifica odierne sono andate bene, aggiorniamo il file col timestamp attuale
-if ($GcSuccess -eq $true -and $VerifySuccess -eq $true) {
-    $CurrentEpoch | Out-File -FilePath $LastSuccessFile -Encoding utf8
 }
 
 $EndDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
-"=== Fine Manutenzione: $EndDate ===" | Out-File -FilePath $LogFile -Append -Encoding utf8
+"=== Fine Manutenzione ($Mode): $EndDate ===" | Out-File -FilePath $LogFile -Append -Encoding utf8
 
 $LastMaintenance = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-
-# Escludiamo le righe piene di hash / ID dei blob (equivalente al filtro grep -vE)
 $rawLines = Get-Content $LogFile -ErrorAction SilentlyContinue
-$filteredLines = foreach ($line in $rawLines) {
-    if ($line -notmatch '([a-f0-9]{32,}|blob|pack|index)') {
-        # Esegue l'escaping di backslash e virgolette per la validità JSON
-        $line -replace '\\', '\\\\' -replace '"', '\"'
+$filteredLines = @()
+if ($rawLines) {
+    foreach ($line in $rawLines) {
+        if ($line -notmatch '([a-f0-9]{32,}|blob|pack|index)') {
+            $filteredLines += ($line -replace '\\', '\\\\' -replace '"', '\"')
+        }
     }
 }
-$RawLogContent = [string]::Join("\n", $filteredLines)
+$RawLogContent = [string]::Join("`n", $filteredLines)
 
-# Creazione del Payload JSON (includendo la VerifyPercent effettiva utilizzata)
 $payloadObj = @{
     AgentId                 = $AgentId
     ContainerName           = $ContainerName
+    Mode                    = $Mode
     Status                  = $Status
     LastMaintenance         = $LastMaintenance
     GarbageCollectorSuccess = $GcSuccess
     VerifySuccess           = $VerifySuccess
-    VerifyPercent           = $VerifyPercent
+    VerifyPercent           = if ($VerifyPercent -ne $null) { $VerifyPercent } else { 0 }
+    TargetIntervalHours     = $CurrentInterval
     Details                 = $Details
     RawOutput               = $RawLogContent
 }
 
 $Payload = $payloadObj | ConvertTo-Json -Compress
+$sent = Send-MqttMessage -Broker $MqttHost -Port $MqttPort -Topic $MqttTopic -Payload $Payload
 
-Write-Host "Invio messaggio da '$AgentId' per '$ContainerName' a ${MqttHost}:${MqttPort} [$MqttTopic]..."
-
-# Invio tramite mosquitto_pub se presente nel sistema Windows
-if (Get-Command mosquitto_pub -ErrorAction SilentlyContinue) {
-    & mosquitto_pub -h "$MqttHost" -p "$MqttPort" -t "$MqttTopic" -m "$Payload"
-} else {
-    Write-Warning "Il comando 'mosquitto_pub' non è disponibile in questo ambiente. Impossibile inviare il messaggio MQTT."
-}
+Write-Host "modalità: $AgentId, container: $ContainerName, tipo: $Mode, stato: $Status, percentuale verifica: $(if($VerifyPercent){"$VerifyPercent%"}else{"N/A"}), intervallo: $CurrentInterval h"
