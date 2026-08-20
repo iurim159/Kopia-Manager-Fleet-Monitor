@@ -32,4 +32,7 @@
 /home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/KopiaMonitorApp.genruntimeconfig.cache
 /home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/ref/KopiaMonitorApp.dll
 /home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/bin/Debug/net10.0/MQTTnet.dll
-/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/compressed/thc9pcj3zm-{0}-lw17zkpz4t-lw17zkpz4t.gz
+/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/KopiaMonitorApp.sourcelink.json
+/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/compressed/545boi7xj2-{0}-v07agr4yuw-v07agr4yuw.gz
+/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/compressed/thc9pcj3zm-{0}-d7hmozybx4-d7hmozybx4.gz
+/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/Debug/net10.0/compressed/mggtq7wt0b-{0}-0yqx61xpq3-0yqx61xpq3.gz

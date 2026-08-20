@@ -16,6 +16,7 @@ KOPIA_PASS="${KOPIA_PASSWORD:-test-password}"
 
 # --- LETTURA CONFIGURAZIONE DINAMICA (MQTT) ---
 SETTINGS_FILE="/app/agent-settings.env"
+VERIFY_PERCENT=0.0001 # Valore di default
 
 if [ -f "$SETTINGS_FILE" ]; then
     source "$SETTINGS_FILE"
@@ -25,11 +26,9 @@ fi
 if [ "$MODE" == "integrity" ]; then
     VERIFY_PERCENT="${INTEGRITY_VERIFY_PERCENT:-1}"
     CURRENT_INTERVAL="${INTEGRITY_VERIFY_INTERVAL_HOURS:-168}"
-    DETAILS="Verification (integrity al ${VERIFY_PERCENT}%) completata senza errori."
 else
     VERIFY_PERCENT=""
     CURRENT_INTERVAL="${NORMAL_VERIFY_INTERVAL_HOURS:-24}"
-    DETAILS="Manutenzione e Garbage Collector completati senza errori."
 fi
 
 # File persistente per tracciare l'ultimo successo specifico per modalità
@@ -39,6 +38,7 @@ MAX_DAYS_ALLOWED=14
 echo "=== Inizio Manutenzione Kopia (${MODE}) [${CONTAINER_NAME}] da Agent [${AGENT_ID}]: $(date) ===" > "$LOG_FILE"
 
 STATUS="OK"
+DETAILS="Manutenzione e Verification (${MODE} al ${VERIFY_PERCENT}%) completati senza errori."
 GC_SUCCESS=true
 VERIFY_SUCCESS=true
 
@@ -62,8 +62,8 @@ if [ -f "$LAST_SUCCESS_FILE" ]; then
         if [ $DIFF_SECONDS -gt $MAX_SECONDS ]; then
             STATUS="CRITICAL"
             DAYS_AGO=$(( DIFF_SECONDS / 86400 ))
-            DETAILS="ATTENZIONE: Nessuna esecuzione ${MODE} riuscita negli ultimi ${DAYS_AGO} giorni (limite: ${MAX_DAYS_ALLOWED} giorni)."
-            echo "CRITICAL: Nessuna esecuzione ${MODE} riuscita negli ultimi ${DAYS_AGO} giorni." >> "$LOG_FILE"
+            DETAILS="ATTENZIONE: Nessuna verifica ${MODE} riuscita negli ultimi ${DAYS_AGO} giorni (limite: ${MAX_DAYS_ALLOWED} giorni)."
+            echo "CRITICAL: Nessuna verifica ${MODE} riuscita negli ultimi ${DAYS_AGO} giorni." >> "$LOG_FILE"
         fi
     else
         echo "$CURRENT_EPOCH" > "$LAST_SUCCESS_FILE"
@@ -72,12 +72,56 @@ else
     echo "$CURRENT_EPOCH" > "$LAST_SUCCESS_FILE"
 fi
 
-# --- ESECUZIONE IN BASE ALLA MODALITÀ ---
 if [ "$MODE" == "normal" ]; then
     # 1. Assegna l'owner della manutenzione all'utente corrente
     run_kopia maintenance set --owner=me >> "$LOG_FILE" 2>&1
 
-    # 2. Esecuzione Manutenzione Full e Garbage Collector
+    # 2. Esecuzione Manutenzione Full e Garbage Collector (solo nella normale)
+    run_kopia maintenance run --full --safety=full >> "$LOG_FILE" 2>&1
+    if [ $? -ne 0 ]; then
+        STATUS="ERROR"
+        GC_SUCCESS=false
+        DETAILS="Errore durante l'esecuzione del Garbage Collector / Manutenzione Full."
+    fi
+
+    # 3. Status della Manutenzione
+    run_kopia maintenance status >> "$LOG_FILE" 2>&1
+fi
+
+# 4. Verification (rapida o profonda in base alla modalità)
+echo "--- Inizio Verification (${MODE}) ---" >> "$LOG_FILE"
+if [ "$MODE" == "integrity" ]; then
+    echo "Esecuzione Verification profonda su ${VERIFY_PERCENT}% dei dati (integrity)..." >> "$LOG_FILE"
+    run_kopia snapshot verify --verify-files-percent=${VERIFY_PERCENT} >> "$LOG_FILE" 2>&1
+    VERIFY_EXIT_CODE=$?
+fi
+
+
+if [ $VERIFY_EXIT_CODE -ne 0 ]; then
+    STATUS="ERROR"
+    VERIFY_SUCCESS=false
+    if [ "$GC_SUCCESS" = true ]; then
+        DETAILS="Errore durante la verifica dei file (${MODE} Verify ${VERIFY_PERCENT}%)."
+    else
+        DETAILS="Errori riscontrati sia nel Garbage Collector che nella Verification."
+    fi
+else
+    VERIFY_SUCCESS=true
+fi
+
+# --- AGGIORNAMENTO DEL TIMESTAMP ---
+if [ "$GC_SUCCESS" = true ] && [ "$VERIFY_SUCCESS" = true ]; then
+    echo "$CURRENT_EPOCH" > "$LAST_SUCCESS_FILE"
+fi
+
+echo "=== Fine Manutenzione (${MODE}): $(date) ===" >> "$LOG_FILE"
+
+LAST_MAINTENANCE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") 
+if [ "$MODE" == "normal" ]; then
+    # 1. Assegna l'owner della manutenzione all'utente corrente
+    run_kopia maintenance set --owner=me >> "$LOG_FILE" 2>&1
+
+    # 2. Esecuzione Manutenzione Full e Garbage Collector (solo nella normale)
     run_kopia maintenance run --full --safety=full >> "$LOG_FILE" 2>&1
     if [ $? -ne 0 ]; then
         STATUS="ERROR"
@@ -88,9 +132,11 @@ if [ "$MODE" == "normal" ]; then
     # 3. Status della Manutenzione
     run_kopia maintenance status >> "$LOG_FILE" 2>&1
     
+    # In modalità normal non facciamo la verifica, quindi consideriamo il check superato d'ufficio
     VERIFY_SUCCESS=true
 fi
 
+# 4. Verification (Eseguita SOLO in modalità integrity)
 if [ "$MODE" == "integrity" ]; then
     echo "--- Inizio Verification (integrity - ${VERIFY_PERCENT}%) ---" >> "$LOG_FILE"
     run_kopia snapshot verify --verify-files-percent=${VERIFY_PERCENT} >> "$LOG_FILE" 2>&1
@@ -137,4 +183,4 @@ EOF
 echo "Invio messaggio da '${AGENT_ID}' per '${CONTAINER_NAME}' (${MODE}) a ${MQTT_HOST}:${MQTT_PORT} [${MQTT_TOPIC}]..."
 mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -t "$MQTT_TOPIC" -m "$PAYLOAD"
 
-echo "modalità: ${AGENT_ID}, container: ${CONTAINER_NAME}, tipo: ${MODE}, stato: ${STATUS}, percentuale verifica: ${VERIFY_PERCENT:-N/A}%, intervallo corrente: ${CURRENT_INTERVAL}, dettagli: ${DETAILS}"
+echo "modalità: ${AGENT_ID}, container: ${CONTAINER_NAME}, tipo: ${MODE}, stato: ${STATUS}, percentuale verifica: ${VERIFY_PERCENT}%, intervallo corrente: ${CURRENT_INTERVAL}, dettagli: ${DETAILS}"

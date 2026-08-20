@@ -65,18 +65,46 @@ docker compose up -d
 
 Ogni agente Linux gira all'interno di un container dedicato gestito da un file `entrypoint.sh` che avvia in autonomia l'ascolto dei comandi MQTT.
 
-### File `entrypoint.sh` dell'agente:
-
-```bash
+File entrypoint.sh dell'agente:
+Bash
 #!/bin/bash
 
-# 1. Avvia il listener MQTT in background per le configurazioni dinamiche
-/app/kopia-mqtt-listener.sh &
+# 1. Assicurati che la cartella dei log esista e crea il file
+mkdir -p /var/log
+touch /var/log/cron.log
 
-# 2. Avvia Cron in foreground (mantiene in vita il container Docker)
-exec cron -f
+# 2. Avvia il servizio cron
+if command -v service &> /dev/null; then
+    service cron start
+else
+    /usr/sbin/cron
+fi
 
-```
+# 3. Avvia il listener MQTT in background per le configurazioni dinamiche
+if [ -f /app/kopia-mqtt-listener.sh ]; then
+    echo "Avvio del listener MQTT..."
+    /app/kopia-mqtt-listener.sh &
+else
+    echo "Attenzione: /app/kopia-mqtt-listener.sh non trovato!"
+fi
+
+# 4. Gestione modalità di avvio (Base o Integrity)
+MODE="${1:-base}"
+if [ "$MODE" = "integrity" ]; then
+    echo " modalità INTEGRITY attiva per l'agente Kopia."
+    # Qui puoi esportare variabili d'ambiente o flag dedicati alla modalità integrity
+    export KOPIA_INTEGRITY_MODE="true"
+else
+    echo " modalita BASE attiva per l'agente Kopia."
+    export KOPIA_INTEGRITY_MODE="false"
+fi
+
+echo "Container avviato e operativo. Monitoraggio in corso..."
+
+# 5. Mantiene vivo il container tracciando i log
+tail -F /var/log/cron.log
+(Nota: Nel tuo Dockerfile, per avviare l'agente in modalità integrity potrai usare: ```bash docker exec -it jdoctor-kopia-agent2 bash -x /app/kopia-weekly-maintenance.sh integrity```
+Mentre per la modalità base basterà omettere il parametro o passare base:```bash docker exec -it jdoctor-kopia-agent2 bash -x /app/kopia-weekly-maintenance.sh```
 
 ### Script Listener MQTT (`kopia-mqtt-listener.sh`):
 
