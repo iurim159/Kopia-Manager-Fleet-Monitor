@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KopiaMonitorApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2f36d7968de04aa62b6c75361319fda4c5f02c60")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c3cb29dc49ae4c8557c39a79a30d1ad4c413c31b")]
 [assembly: System.Reflection.AssemblyProductAttribute("KopiaMonitorApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KopiaMonitorApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
