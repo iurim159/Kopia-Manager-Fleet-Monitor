@@ -135,6 +135,8 @@ EOF
 )
 
 echo "Invio messaggio da '${AGENT_ID}' per '${CONTAINER_NAME}' (${MODE}) a ${MQTT_HOST}:${MQTT_PORT} [${MQTT_TOPIC}]..."
-mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -t "$MQTT_TOPIC" -m "$PAYLOAD"
+
+mqttx pub -h "$MQTT_HOST" -p "$MQTT_PORT" -t "$MQTT_TOPIC" -m "$PAYLOAD"
+
 
 echo "modalità: ${AGENT_ID}, container: ${CONTAINER_NAME}, tipo: ${MODE}, stato: ${STATUS}, percentuale verifica: ${VERIFY_PERCENT:-N/A}%, intervallo corrente: ${CURRENT_INTERVAL}, dettagli: ${DETAILS}"
