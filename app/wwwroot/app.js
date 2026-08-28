@@ -177,37 +177,82 @@ function renderCards(devices) {
     });
 }
 
-async function runChecksNow() {
-    const btn = document.getElementById('btnRunNow');
-    const icon = document.getElementById('btnIcon');
-    const text = document.getElementById('btnText');
+// --- GESTIONE MODALE SSH (ESECUZIONE CONTROLLI ORA) ---
+
+function runChecksNow() {
+    // Apre il modale per la lista IP e credenziali SSH invece di eseguire subito la chiamata
+    document.getElementById('runNowModal').style.display = 'flex';
+}
+
+function closeRunNowModal() {
+    document.getElementById('runNowModal').style.display = 'none';
+}
+
+async function submitRunNowSsh() {
+    const btn = document.querySelector('#runNowModal .btn-save');
+    const nodeListText = document.getElementById('sshNodeList').value.trim();
+
+    if (!nodeListText) {
+        showToast("Inserisci almeno un nodo nel formato corretto.", "error");
+        return;
+    }
+
+    // Analizza riga per riga la textarea
+    const lines = nodeListText.split(/[\r\n]+/);
+    const targets = [];
+
+    for (let line of lines) {
+        if (!line.trim()) continue;
+
+        // Supporta separatore pipe "|" o virgola ","
+        const parts = line.split(/[|,]/).map(p => p.trim());
+        
+        if (parts.length >= 3) {
+            targets.push({
+                ip: parts[0],
+                username: parts[1],
+                credential: parts.slice(2).join(':') // Riunisce eventuali caratteri speciali nella password
+            });
+        }
+    }
+
+    if (targets.length === 0) {
+        showToast("Nessun target valido trovato. Usa il formato: IP | username | password", "error");
+        return;
+    }
+
+    const payload = { targets: targets };
 
     btn.disabled = true;
-    icon.className = 'spinner';
-    icon.textContent = '';
-    text.textContent = 'Esecuzione...';
-    
+    btn.textContent = 'Connessione sequenziale in corso...';
+
     try {
-        const response = await fetch('/api/run-now', { method: 'POST' });
+        const response = await fetch('/api/run-now-ssh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
         const result = await response.json();
 
         if (!response.ok || result.success === false) {
-            showToast("Errore esecuzione: " + (result.message || result.detail || "Impossibile completare la manutenzione."), "error");
+            showToast("Errore esecuzione remota: " + (result.message || "Impossibile completare."), "error");
         } else {
-            showToast("Controlli eseguiti con successo!", "success");
+            showToast("Comandi SSH avviati sequenzialmente sui nodi!", "success");
+            closeRunNowModal();
         }
         
         await fetchStatus();
     } catch (err) {
-        console.error("Errore esecuzione controlli:", err);
-        showToast("Errore di rete durante la richiesta.", "error");
+        console.error("Errore di rete SSH:", err);
+        showToast("Errore di rete durante la richiesta SSH.", "error");
     } finally {
         btn.disabled = false;
-        icon.className = '';
-        icon.textContent = '↻';
-        text.textContent = 'Esegui Controlli Ora';
+        btn.textContent = 'Connetti ed Esegui';
     }
 }
+
+// --- UTILITIES DI NOTIFICA E ESCAPING ---
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -238,7 +283,7 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
-// --- LOGICA DEL MODALE UNIFICATO ---
+// --- LOGICA DEL MODALE CONFIGURAZIONE AVANZATA ---
 
 function openSettingsModal(deviceId) {
     currentDeviceId = deviceId; 
@@ -251,9 +296,8 @@ function closeSettingsModal() {
 }
 
 async function saveAdvancedConfig() {
-    const btn = document.querySelector('.btn-save');
+    const btn = document.querySelector('#settingsModal .btn-save');
     
-    // Lettura sicura dei campi unificati attuali
     const normalEl = document.getElementById('normalInterval');
     const integrityEl = document.getElementById('integrityInterval');
     const verifyEl = document.getElementById('verifyPercent');
@@ -262,7 +306,6 @@ async function saveAdvancedConfig() {
     const integrityInterval = integrityEl ? (parseInt(integrityEl.value, 10) || 168) : 168;
     const verifyPercent = verifyEl ? (parseFloat(verifyEl.value) || 1) : 1;
     
-    // Payload universale pulito
     const payload = {
         DeviceId: currentDeviceId,
         NormalVerifyIntervalHours: normalInterval,

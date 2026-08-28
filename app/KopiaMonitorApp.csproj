@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
 </Project>

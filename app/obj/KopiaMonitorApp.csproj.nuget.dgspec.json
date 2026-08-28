@@ -39,7 +39,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.300"
+        "SdkAnalysisLevel": "10.0.400"
       },
       "frameworks": {
         "net10.0": {
@@ -53,6 +53,10 @@
             "MQTTnet": {
               "target": "Package",
               "version": "[5.2.0.1603, )"
+            },
+            "SSH.NET": {
+              "target": "Package",
+              "version": "[2026.0.0, )"
             }
           },
           "imports": [
@@ -74,7 +78,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/home/iurim/.dotnet/sdk/10.0.302/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "/home/iurim/.dotnet/sdk/10.0.400/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

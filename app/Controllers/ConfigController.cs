@@ -27,7 +27,7 @@ public class ConfigController : ControllerBase
 
             string jsonPayload = JsonSerializer.Serialize(payloadObj);
 
-            await _mqttService.PublishAsync("kopia/config/advanced", jsonPayload);
+            await _mqttService.PublishAsync("kopia/config/advanced", jsonPayload, retain: true); // Imposta il flag retain a true
 
             return Ok(new { success = true, message = "Configurazione inviata con successo via MQTT agli agenti!" });
         }

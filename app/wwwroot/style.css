@@ -107,6 +107,19 @@ body {
     cursor: not-allowed;
 }
 
+/* --- Stili specifici per il Modale SSH / Textarea IP --- */
+#runNowModal textarea.form-control {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 90px;
+}
+
+#runNowModal input.form-control {
+    font-family: var(--font-sans);
+}
+
 /* Main Grid Layout */
 .main-container {
     max-width: 1400px;

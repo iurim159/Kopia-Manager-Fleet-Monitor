@@ -11,6 +11,7 @@ namespace KopiaMonitorApp.Services
     {
         public string AgentId { get; set; } = "UNKNOWN_AGENT";
         public string ContainerName { get; set; } = string.Empty;
+        public string Mode { get; set; } = "normal";
         public string Status { get; set; } = string.Empty;
         public string LastMaintenance { get; set; } = string.Empty;
         public bool GarbageCollectorSuccess { get; set; } = true;
@@ -18,7 +19,10 @@ namespace KopiaMonitorApp.Services
         public string RawOutput { get; set; } = string.Empty;
         public bool VerifySuccess { get; set; } = true;
         public double VerifyPercent { get; set; } = 0.0001;
-        public string UniqueKey => $"{AgentId}_{ContainerName}";
+        public int TargetIntervalHours { get; set; } = 24;
+        
+        // Chiave unica aggiornata per separare le schede 'normal' e 'integrity' sulla dashboard
+        public string UniqueKey => $"{AgentId}_{ContainerName}_{Mode}";
     }
 
     public class MqttSubscriberService : BackgroundService
@@ -103,7 +107,7 @@ namespace KopiaMonitorApp.Services
             }
         }
 
-        public async Task PublishAsync(string topic, string payload)
+        public async Task PublishAsync(string topic, string payload, bool retain = false)
         {
             if (_mqttClient == null || !_mqttClient.IsConnected)
             {
@@ -113,10 +117,19 @@ namespace KopiaMonitorApp.Services
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(payload)
+                .WithRetainFlag(retain)
                 .Build();
 
             await _mqttClient.PublishAsync(message);
-            _logger.LogInformation("Pubblicato messaggio su {Topic}: {Payload}", topic, payload);
+            _logger.LogInformation("Pubblicato messaggio su {Topic} (Retained: {Retain}): {Payload}", topic, retain, payload);
+        }
+
+        // --- AGGIUNGI QUI IL METODO PER IL PULSANTE ---
+        public async Task TriggerRunNowAsync()
+        {
+            string payload = JsonSerializer.Serialize(new { Action = "run_now", Timestamp = DateTime.UtcNow });
+            await PublishAsync("kopia/command/run", payload, retain: false);
+            _logger.LogInformation("Comando 'Esegui Controlli Ora' pubblicato con successo su kopia/command/run");
         }
     }
 }

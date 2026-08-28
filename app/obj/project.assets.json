@@ -2,6 +2,19 @@
   "version": 4,
   "targets": {
     "net10.0": {
+      "BouncyCastle.Cryptography/2.7.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/BouncyCastle.Cryptography.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/BouncyCastle.Cryptography.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Docker.DotNet/3.125.15": {
         "type": "package",
         "dependencies": {
@@ -43,10 +56,46 @@
             "related": ".xml"
           }
         }
+      },
+      "SSH.NET/2026.0.0": {
+        "type": "package",
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.7.0"
+        },
+        "compile": {
+          "lib/net10.0/Renci.SshNet.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Renci.SshNet.dll": {
+            "related": ".xml"
+          }
+        }
       }
     }
   },
   "libraries": {
+    "BouncyCastle.Cryptography/2.7.0": {
+      "sha512": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw==",
+      "type": "package",
+      "path": "bouncycastle.cryptography/2.7.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.md",
+        "README.md",
+        "bouncycastle.cryptography.2.7.0.nupkg.sha512",
+        "bouncycastle.cryptography.nuspec",
+        "lib/net461/BouncyCastle.Cryptography.dll",
+        "lib/net461/BouncyCastle.Cryptography.xml",
+        "lib/net6.0/BouncyCastle.Cryptography.dll",
+        "lib/net6.0/BouncyCastle.Cryptography.xml",
+        "lib/netstandard2.0/BouncyCastle.Cryptography.dll",
+        "lib/netstandard2.0/BouncyCastle.Cryptography.xml",
+        "packageIcon.png"
+      ]
+    },
     "Docker.DotNet/3.125.15": {
       "sha512": "XN8FKxVv8Mjmwu104/Hl9lM61pLY675s70gzwSj8KR5pwblo8HfWLcCuinh9kYsqujBkMH4HVRCEcRuU6al4BQ==",
       "type": "package",
@@ -107,12 +156,36 @@
         "newtonsoft.json.nuspec",
         "packageIcon.png"
       ]
+    },
+    "SSH.NET/2026.0.0": {
+      "sha512": "Yu9dirPq8l3oaat0+OQ7K0nUf5MmYltpia5UGqsApTG4zTPvBC1cxbNnC3NERij26dUST0A3Ef1QdHSn5ArbWQ==",
+      "type": "package",
+      "path": "ssh.net/2026.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "SS-NET-icon-h500.png",
+        "lib/net10.0/Renci.SshNet.dll",
+        "lib/net10.0/Renci.SshNet.xml",
+        "lib/net462/Renci.SshNet.dll",
+        "lib/net462/Renci.SshNet.xml",
+        "lib/net8.0/Renci.SshNet.dll",
+        "lib/net8.0/Renci.SshNet.xml",
+        "lib/net9.0/Renci.SshNet.dll",
+        "lib/net9.0/Renci.SshNet.xml",
+        "lib/netstandard2.0/Renci.SshNet.dll",
+        "lib/netstandard2.0/Renci.SshNet.xml",
+        "ssh.net.2026.0.0.nupkg.sha512",
+        "ssh.net.nuspec"
+      ]
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
       "Docker.DotNet >= 3.125.15",
-      "MQTTnet >= 5.2.0.1603"
+      "MQTTnet >= 5.2.0.1603",
+      "SSH.NET >= 2026.0.0"
     ]
   },
   "packageFolders": {
@@ -153,7 +226,7 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.300"
+      "SdkAnalysisLevel": "10.0.400"
     },
     "frameworks": {
       "net10.0": {
@@ -167,6 +240,10 @@
           "MQTTnet": {
             "target": "Package",
             "version": "[5.2.0.1603, )"
+          },
+          "SSH.NET": {
+            "target": "Package",
+            "version": "[2026.0.0, )"
           }
         },
         "imports": [
@@ -188,7 +265,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/home/iurim/.dotnet/sdk/10.0.302/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/home/iurim/.dotnet/sdk/10.0.400/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

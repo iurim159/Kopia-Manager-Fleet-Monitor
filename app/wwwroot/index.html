@@ -80,6 +80,31 @@
       </div>
     </div>
 
+    <!-- MODALE ESEGUI CONTROLLI ORA (SSH 1:1) -->
+    <div class="modal-overlay" id="runNowModal" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">Esecuzione Remota Controlli (SSH 1:1)</h3>
+          <button type="button" class="btn-close" onclick="closeRunNowModal()" title="Chiudi">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="runNowForm">
+            
+            <div class="form-group">
+              <label class="form-label">Lista Nodi (Formato per riga: <code>IP | username | password</code>)</label>
+              <textarea id="sshNodeList" class="form-control" rows="6" placeholder="192.168.1.50 | administrator | mia_password_1&#10;192.168.1.51 | root | mia_chiave_o_pwd_2"></textarea>
+              <small style="color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px;">Ogni riga configurerà un singolo target in modo sequenziale.</small>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-action" onclick="closeRunNowModal()">Annulla</button>
+          <button type="button" class="btn-action btn-save" onclick="submitRunNowSsh()">Connetti ed Esegui</button>
+        </div>
+      </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
