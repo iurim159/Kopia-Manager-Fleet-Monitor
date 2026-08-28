@@ -106,6 +106,9 @@ tail -F /var/log/cron.log
 (Nota: Nel tuo Dockerfile, per avviare l'agente in modalità integrity potrai usare: ```bash docker exec -it jdoctor-kopia-agent2 bash -x /app/kopia-weekly-maintenance.sh integrity```
 Mentre per la modalità base basterà omettere il parametro o passare base:```bash docker exec -it jdoctor-kopia-agent2 bash -x /app/kopia-weekly-maintenance.sh```
 
+Per eseguire in locale:
+```bash MQTT_HOST="localhost" ./kopia-weekly-maintenance.sh ```
+
 ### Script Listener MQTT (`kopia-mqtt-listener.sh`):
 
 Ascolta sul topic `kopia/config/advanced/#` e aggiorna le impostazioni locali (`agent-settings.env`) e il crontab di sistema:
