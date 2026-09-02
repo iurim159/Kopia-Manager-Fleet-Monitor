@@ -306,7 +306,26 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
                             $env:KOPIA_PASSWORD = $KopiaPass
                             $kopiaExe = Ensure-KopiaInstalled
                             if ($null -eq $kopiaExe -or !(Test-Path $kopiaExe)) { return }
-                            & $kopiaExe @KopiaArgs 2>&1
+                            
+                            # Esegue il comando reindirizzando gli errori come stringhe normali senza generare eccezioni di PowerShell
+                            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+                            $processInfo.FileName = $kopiaExe
+                            $processInfo.Arguments = ($KopiaArgs -join ' ')
+                            $processInfo.RedirectStandardOutput = $true
+                            $processInfo.RedirectStandardError = $true
+                            $processInfo.UseShellExecute = $false
+                            $processInfo.Environment["KOPIA_PASSWORD"] = $KopiaPass
+
+                            $process = [System.Diagnostics.Process]::Start($processInfo)
+                            $stdout = $process.StandardOutput.ReadToEnd()
+                            $stderr = $process.StandardError.ReadToEnd()
+                            $process.WaitForExit()
+
+                            if ($stdout) { $stdout }
+                            if ($stderr) { $stderr }
+                            
+                            # Imposta la variabile globale di PowerShell per mantenere la compatibilità con i controlli dell'exit code
+                            $script:LASTEXITCODE = $process.ExitCode
                         }
 
                         $CurrentEpoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
