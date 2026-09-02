@@ -1,0 +1,111 @@
+string scriptContent = """
+                #!/bin/bash
+
+                MODE="${1:-normal}"
+                AGENT_ID="${AGENT_ID:-UNKNOWN_AGENT}"
+                CONTAINER_NAME="${CONTAINER_NAME:-kopia-iso-tn-01-kopia}"
+                LOG_FILE="/tmp/kopia-maintenance-${MODE}.log"
+                MQTT_HOST="${MQTT_HOST:-emqx}"
+                MQTT_PORT="${MQTT_PORT:-1883}"
+                MQTT_TOPIC="kopia/maintenance/${AGENT_ID}/${CONTAINER_NAME}/${MODE}"
+                KOPIA_PASS="${KOPIA_PASSWORD:-test-password}"
+                SETTINGS_FILE="/app/agent-settings.env"
+
+                if [ -f "$SETTINGS_FILE" ]; then
+                    source "$SETTINGS_FILE"
+                fi
+
+                if [ "$MODE" == "integrity" ]; then
+                    VERIFY_PERCENT="${INTEGRITY_VERIFY_PERCENT:-1}"
+                    CURRENT_INTERVAL="${INTEGRITY_VERIFY_INTERVAL_HOURS:-168}"
+                    DETAILS="Verification (integrity al ${VERIFY_PERCENT}%) completata senza errori."
+                else
+                    VERIFY_PERCENT=""
+                    CURRENT_INTERVAL="${NORMAL_VERIFY_INTERVAL_HOURS:-24}"
+                    DETAILS="Manutenzione e Garbage Collector completati senza errori."
+                fi
+
+                LAST_SUCCESS_FILE="/tmp/kopia_last_success_${CONTAINER_NAME}_${MODE}"
+                MAX_DAYS_ALLOWED=14
+
+                echo "=== Inizio Manutenzione Kopia (${MODE}) [${CONTAINER_NAME}] da Agent [${AGENT_ID}]: $(date) ===" > "$LOG_FILE"
+
+                STATUS="OK"
+                GC_SUCCESS=true
+                VERIFY_SUCCESS=true
+
+                run_kopia() {
+                    if command -v kopia &> /dev/null; then
+                        KOPIA_PASSWORD="$KOPIA_PASS" kopia "$@"
+                    else
+                        docker exec -e KOPIA_PASSWORD="$KOPIA_PASS" "$CONTAINER_NAME" kopia "$@"
+                    fi
+                }
+
+                CURRENT_EPOCH=$(date +%s)
+                if [ -f "$LAST_SUCCESS_FILE" ]; then
+                    LAST_SUCCESS_EPOCH=$(cat "$LAST_SUCCESS_FILE" | tr -d '[:space:]')
+                    if [[ "$LAST_SUCCESS_EPOCH" =~ ^[0-9]+$ ]]; then
+                        DIFF_SECONDS=$(( CURRENT_EPOCH - LAST_SUCCESS_EPOCH ))
+                        MAX_SECONDS=$(( MAX_DAYS_ALLOWED * 86400 ))
+                        if [ $DIFF_SECONDS -gt $MAX_SECONDS ]; then
+                            STATUS="CRITICAL"
+                            DAYS_AGO=$(( DIFF_SECONDS / 86400 ))
+                            DETAILS="ATTENZIONE: Nessuna esecuzione ${MODE} riuscita negli ultimi ${DAYS_AGO} giorni."
+                        fi
+                    fi
+                fi
+
+                if [ "$MODE" == "normal" ]; then
+                    run_kopia maintenance set --owner=me >> "$LOG_FILE" 2>&1
+                    run_kopia maintenance run --full --safety=full >> "$LOG_FILE" 2>&1
+                    if [ $? -ne 0 ]; then
+                        STATUS="ERROR"
+                        GC_SUCCESS=false
+                        DETAILS="Errore durante l'esecuzione del Garbage Collector / Manutenzione Full."
+                    fi
+                    run_kopia maintenance status >> "$LOG_FILE" 2>&1
+                fi
+
+                if [ "$MODE" == "integrity" ]; then
+                    run_kopia snapshot verify --verify-files-percent=${VERIFY_PERCENT} >> "$LOG_FILE" 2>&1
+                    if [ $? -ne 0 ]; then
+                        STATUS="ERROR"
+                        VERIFY_SUCCESS=false
+                        DETAILS="Errore durante la verifica dei file."
+                    fi
+                fi
+
+                if [ "$GC_SUCCESS" = true ] && [ "$VERIFY_SUCCESS" = true ]; then
+                    echo "$CURRENT_EPOCH" > "$LAST_SUCCESS_FILE"
+                fi
+
+                LAST_MAINTENANCE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                RAW_LOG_CONTENT=$(grep -vE "([a-f0-9]{32,}|blob|pack|index)" "$LOG_FILE" | tr -d '\r' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+
+                PAYLOAD=$(cat <<EOF
+                {
+                "AgentId": "${AGENT_ID}",
+                "ContainerName": "${CONTAINER_NAME}",
+                "Mode": "${MODE}",
+                "Status": "${STATUS}",
+                "LastMaintenance": "${LAST_MAINTENANCE}",
+                "GarbageCollectorSuccess": ${GC_SUCCESS},
+                "VerifySuccess": ${VERIFY_SUCCESS},
+                "VerifyPercent": ${VERIFY_PERCENT:-0},
+                "TargetIntervalHours": ${CURRENT_INTERVAL},
+                "Details": "${DETAILS}",
+                "RawOutput": "${RAW_LOG_CONTENT}"
+                }
+                EOF
+                )
+
+                BACKEND_URL="${BACKEND_URL:-http://localhost:5000/api/maintenance-report}"
+
+                # Esegue il curl verso il backend .NET
+                curl -s -X POST "$BACKEND_URL" -H "Content-Type: application/json" -d "$PAYLOAD"
+
+                # Stampa il log completo sullo standard output per catturarlo in cmd.Result
+                echo "=== LOG COMPLETO DI MANUTENZIONE ==="
+                cat "$LOG_FILE"
+                """;

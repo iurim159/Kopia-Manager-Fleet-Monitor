@@ -1,6 +1,6 @@
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update -o Acquire::Check-Valid-Until=false -o Acquire::Allow-InsecureRepositories=true && apt-get install -y \
     curl \
     cron \
     ca-certificates \
