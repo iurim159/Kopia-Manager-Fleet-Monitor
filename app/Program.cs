@@ -87,7 +87,7 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
 
     var scheme = httpRequest.Scheme;
     var host = httpRequest.Host;
-    string serverBaseUrl = "http://10.80.90.182:5106";
+    string serverBaseUrl = "http://10.80.90.182:5106"; // IP del server KopiaMonitorApp
 
     var results = new List<object>();
 
@@ -213,7 +213,6 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
 
                 RAW_LOG_CONTENT=$(grep -vE "([a-f0-9]{32,}|blob|pack|index)" "$LOG_FILE" | tr -d '\r' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
 
-                # Conversione status in codice numerico Health Check (0=non eseguibile, 1=OK, 2=warning, 3=critical)
                 STATUS_CODE=1
                 if [ "$STATUS" = "CRITICAL" ]; then
                     STATUS_CODE=3
@@ -229,10 +228,12 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
 
                 TIMESTAMP_ISO="$LAST_MAINTENANCE"
 
+                PAYLOG_ID="LinuxAgent_{{target.Ip}}"
+
                 PAYLOAD=$(cat <<EOF
                 {
                   "version": 1,
-                  "id": "LinuxAgent_${target.Ip}",
+                  "id": "${PAYLOG_ID}",
                   "timestamp": "${TIMESTAMP_ISO}",
                   "status": ${STATUS_CODE},
                   "components": [
@@ -260,14 +261,12 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
                 EOF
                 )
 
-                # Salvataggio incrementale locale in formato JSONL
                 echo "$PAYLOAD" >> "/tmp/kopia-health.jsonl"
-
                 curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$SERVER_URL" > /dev/null
                 """;
 
-                var cmd = client.RunCommand($"bash -s -- normal << 'END_SCRIPT'\n{bashScriptContent}\nEND_SCRIPT");
-                client.Disconnect();
+                string cleanBashScript = bashScriptContent.Replace("\r\n", "\n");
+                var cmd = client.RunCommand($"bash -s -- normal << 'END_SCRIPT'\n{cleanBashScript}\nEND_SCRIPT");                client.Disconnect();
 
                 results.Add(new {
                     ip = target.Ip,
@@ -378,7 +377,6 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
                 }
                 $RawLogContent = [string]::Join("`n", $filteredLines)
 
-                # Codici di stato numerici Health Check (0=non eseguibile, 1=OK, 2=warning, 3=critical)
                 $StatusCode = 1
                 if ($Status -eq "CRITICAL") {
                     $StatusCode = 3
@@ -420,7 +418,6 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
                 
                 $JsonPayload = $healthLogObj | ConvertTo-Json -Depth 5 -Compress
                 
-                # Salvataggio incrementale locale in formato JSONL su Windows
                 $JsonPayload | Out-File -FilePath "C:\Windows\Temp\kopia-health.jsonl" -Append -Encoding utf8
 
                 try {
@@ -471,7 +468,7 @@ app.MapPost("/api/run-now-ssh", async (HttpRequest httpRequest, RunNowSshRequest
     return Results.Ok(new { success = true, data = results });
 });
 
-// --- ENDPOINT UNIFICATO: RICEZIONE REPORT (Resiliente agli errori di codifica e tipi JSON) ---
+// --- ENDPOINT UNIFICATO: RICEZIONE REPORT ---
 app.MapPost("/api/maintenance-report", async (HttpRequest httpRequest, ILogger<Program> logger) =>
 {
     using var reader = new StreamReader(httpRequest.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
