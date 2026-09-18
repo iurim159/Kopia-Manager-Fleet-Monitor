@@ -72,6 +72,47 @@
             "related": ".xml"
           }
         }
+      },
+      "System.CodeDom/10.0.12": {
+        "type": "package",
+        "compile": {
+          "lib/net10.0/System.CodeDom.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/System.CodeDom.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net8.0/_._": {}
+        }
+      },
+      "System.Management/10.0.12": {
+        "type": "package",
+        "dependencies": {
+          "System.CodeDom": "10.0.12"
+        },
+        "compile": {
+          "lib/net10.0/System.Management.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/System.Management.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net8.0/_._": {}
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net10.0/System.Management.dll": {
+            "assetType": "runtime",
+            "rid": "win"
+          }
+        }
       }
     }
   },
@@ -179,29 +220,91 @@
         "ssh.net.2026.0.0.nupkg.sha512",
         "ssh.net.nuspec"
       ]
+    },
+    "System.CodeDom/10.0.12": {
+      "sha512": "Kk3yEavoGHXCAFTLLegxztgSdj24JrkAHelwgWnu+YMFxezcU2DbABEOOIMdy04PExUtKQtlazaKqo0qSa1X6A==",
+      "type": "package",
+      "path": "system.codedom/10.0.12",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/System.CodeDom.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/System.CodeDom.targets",
+        "lib/net10.0/System.CodeDom.dll",
+        "lib/net10.0/System.CodeDom.xml",
+        "lib/net462/System.CodeDom.dll",
+        "lib/net462/System.CodeDom.xml",
+        "lib/net8.0/System.CodeDom.dll",
+        "lib/net8.0/System.CodeDom.xml",
+        "lib/net9.0/System.CodeDom.dll",
+        "lib/net9.0/System.CodeDom.xml",
+        "lib/netstandard2.0/System.CodeDom.dll",
+        "lib/netstandard2.0/System.CodeDom.xml",
+        "system.codedom.10.0.12.nupkg.sha512",
+        "system.codedom.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Management/10.0.12": {
+      "sha512": "ApUsYmsNG8aPiMxsO6ROGZnqJwSZY8zeMlAQcuQg+ilPFUcIyBUC0BL8qA6wmPLNVsvL4nyhUrhhxh6qn0cx0Q==",
+      "type": "package",
+      "path": "system.management/10.0.12",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Management.targets",
+        "lib/net10.0/System.Management.dll",
+        "lib/net10.0/System.Management.xml",
+        "lib/net462/_._",
+        "lib/net8.0/System.Management.dll",
+        "lib/net8.0/System.Management.xml",
+        "lib/net9.0/System.Management.dll",
+        "lib/net9.0/System.Management.xml",
+        "lib/netstandard2.0/System.Management.dll",
+        "lib/netstandard2.0/System.Management.xml",
+        "runtimes/win/lib/net10.0/System.Management.dll",
+        "runtimes/win/lib/net10.0/System.Management.xml",
+        "runtimes/win/lib/net8.0/System.Management.dll",
+        "runtimes/win/lib/net8.0/System.Management.xml",
+        "runtimes/win/lib/net9.0/System.Management.dll",
+        "runtimes/win/lib/net9.0/System.Management.xml",
+        "system.management.10.0.12.nupkg.sha512",
+        "system.management.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
       "Docker.DotNet >= 3.125.15",
       "MQTTnet >= 5.2.0.1603",
-      "SSH.NET >= 2026.0.0"
+      "SSH.NET >= 2026.0.0",
+      "System.Management >= 10.0.12"
     ]
   },
   "packageFolders": {
-    "/home/iurim/.nuget/packages/": {}
+    "C:\\Users\\iurim\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/KopiaMonitorApp.csproj",
+      "projectUniqueName": "C:\\Users\\iurim\\Desktop\\programming\\Kopia-Manager-Fleet-Monitor\\app\\KopiaMonitorApp.csproj",
       "projectName": "KopiaMonitorApp",
-      "projectPath": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/KopiaMonitorApp.csproj",
-      "packagesPath": "/home/iurim/.nuget/packages/",
-      "outputPath": "/home/iurim/Desktop/programming/forJ/jdoctor-kopia-manager/app/obj/",
+      "projectPath": "C:\\Users\\iurim\\Desktop\\programming\\Kopia-Manager-Fleet-Monitor\\app\\KopiaMonitorApp.csproj",
+      "packagesPath": "C:\\Users\\iurim\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\iurim\\Desktop\\programming\\Kopia-Manager-Fleet-Monitor\\app\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/home/iurim/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\iurim\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
@@ -244,6 +347,10 @@
           "SSH.NET": {
             "target": "Package",
             "version": "[2026.0.0, )"
+          },
+          "System.Management": {
+            "target": "Package",
+            "version": "[10.0.12, )"
           }
         },
         "imports": [
@@ -265,7 +372,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/home/iurim/.dotnet/sdk/10.0.400/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

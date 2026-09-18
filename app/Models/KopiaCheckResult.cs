@@ -4,6 +4,9 @@ namespace KopiaMonitorApp.Models;
 
 public class KopiaCheckResult
 {
+    [JsonPropertyName("Mode")]
+    public string Mode { get; set; } = "normal"; // "normal" o "integrity"
+
     [JsonPropertyName("AgentId")]
     public string DeviceId { get; set; } = string.Empty;
 

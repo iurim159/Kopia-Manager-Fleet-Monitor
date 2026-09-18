@@ -47,7 +47,7 @@ namespace KopiaMonitorApp.Services
             var mqttFactory = new MqttClientFactory();
             _mqttClient = mqttFactory.CreateMqttClient();
 
-            var brokerHost = _config["MQTT:Broker"] ?? _config["MQTT:Host"] ?? "emqx";
+            var brokerHost = _config["MQTT:Broker"] ?? _config["MQTT:Host"] ?? "127.0.0.1";
             var brokerPort = int.Parse(_config["MQTT:Port"] ?? "1883");
 
             _mqttClientOptions = new MqttClientOptionsBuilder()

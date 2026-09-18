@@ -52,6 +52,16 @@ docker compose up -d
 
 ```
 
+3. Avvio della Dashboard (.NET)
+Spostati all'interno della cartella /app ed esegui l'applicazione .NET mettendola in ascolto su tutte le interfacce di rete alla porta 5106:
+
+```bash
+cd app
+dotnet run --urls "[http://0.0.0.0:5106](http://0.0.0.0:5106)"
+```
+
+La dashboard e le API saranno ora accessibili all'indirizzo http://localhost:5106 (o tramite l'IP di rete del server).
+
 
 3. **Verifica dei servizi attivi:**
 * **Dashboard .NET:** Disponibile su `http://localhost:5000` (o la porta configurata).
@@ -190,5 +200,9 @@ La dashboard pubblicherà il comando via MQTT sul topic `kopia/config/advanced`,
 
 ## 🛠️ Risoluzione Problemi (Troubleshooting)
 
-* **Connessione MQTT rifiutata (`Connection refused`):** Assicurati che il nome host del broker nei servizi sia `emqx` (se all'interno della stessa rete Docker) o l'IP corretto della macchina se eseguito dall'esterno.
-* **Il listener non riceve i messaggi:** Verifica che il topic configurato nel listener corrisponda esattamente a quello pubblicato dal controller .NET (`kopia/config/advanced`). Utilizza `mosquitto_sub` da terminale per monitorare il traffico sul broker in tempo reale.
+
+**Gestione della Codifica UTF-8:** Nello script di automazione per i client Windows, i payload JSON vengono serializzati e trasmessi forzando esplicitamente i byte in UTF-8 ([System.Text.Encoding]::UTF8.GetBytes) per prevenire errori di codifica o caratteri corrotti.
+
+**Esecuzione Remota Windows (WMI):** Per i nodi Windows target, assicurati che le credenziali fornite dispongano dei privilegi amministrativi necessari per l'esecuzione dei processi tramite WMI (Win32_Process.Create).
+
+**Connessione MQTT rifiutata (Connection refused):** Assicurati che il nome host del broker nei servizi sia configurato correttamente in base all'ambiente (locale o rete Docker).
